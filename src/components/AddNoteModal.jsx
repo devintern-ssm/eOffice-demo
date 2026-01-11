@@ -8,12 +8,48 @@ const AddNoteModal = ({ file, onClose }) => {
   const [selectedCorr, setSelectedCorr] = useState([])
   const [selectedNotes, setSelectedNotes] = useState([])
   const [forwardTo, setForwardTo] = useState('')
+  const [isDraft, setIsDraft] = useState(false)
+  const [searchApprovedFiles, setSearchApprovedFiles] = useState('')
+  const [approvedFilesResults, setApprovedFilesResults] = useState([])
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    // In real app, this would save the note
-    alert('Note added successfully! (Demo mode)')
+    if (isDraft) {
+      alert('Draft saved successfully! You can continue working on it later. (Demo mode)')
+    } else {
+      alert('Note submitted successfully! (Demo mode)')
+    }
     onClose()
+  }
+
+  const handleSaveDraft = () => {
+    setIsDraft(true)
+    alert('Draft saved! You can continue working on it later. (Demo mode)')
+    // In real app, this would save as draft
+  }
+
+  const handleSearchApprovedFiles = (searchTerm) => {
+    setSearchApprovedFiles(searchTerm)
+    if (searchTerm.length > 2) {
+      // In real app, this would search approved files
+      // For demo, show mock results
+      const mockResults = files.filter(f => 
+        f.status === 'Approved' && 
+        (f.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         f.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+      setApprovedFilesResults(mockResults)
+    } else {
+      setApprovedFilesResults([])
+    }
+  }
+
+  const handleCopyReference = (approvedFile) => {
+    // Copy reference to note content
+    const reference = `Refer approved file ${approvedFile.fileNumber}: ${approvedFile.subject}`
+    setNoteContent(prev => prev + '\n' + reference)
+    setSearchApprovedFiles('')
+    setApprovedFilesResults([])
   }
 
   const toggleCorr = (corrNumber) => {
@@ -50,8 +86,37 @@ const AddNoteModal = ({ file, onClose }) => {
               onChange={(e) => setNoteContent(e.target.value)}
               placeholder="Enter your note here. You can reference correspondence (e.g., Refer C/1) or previous notes (e.g., Refer Note 1)..."
               rows={12}
-              required
+              required={!isDraft}
             />
+          </div>
+
+          <div className="form-group">
+            <label>Search Approved Files</label>
+            <div className="search-approved-files">
+              <input
+                type="text"
+                value={searchApprovedFiles}
+                onChange={(e) => handleSearchApprovedFiles(e.target.value)}
+                placeholder="Search approved files to copy references..."
+                className="search-input"
+              />
+              {approvedFilesResults.length > 0 && (
+                <div className="approved-files-results">
+                  {approvedFilesResults.map(af => (
+                    <div 
+                      key={af.id} 
+                      className="approved-file-item"
+                      onClick={() => handleCopyReference(af)}
+                    >
+                      <div className="file-ref">{af.fileNumber}</div>
+                      <div className="file-subject">{af.subject}</div>
+                      <small>Click to copy reference</small>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <small>Search and copy references from approved files</small>
           </div>
 
           <div className="form-row">
@@ -116,8 +181,19 @@ const AddNoteModal = ({ file, onClose }) => {
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
-              <FiSend /> Submit Note
+            <button 
+              type="button" 
+              className="btn-draft" 
+              onClick={handleSaveDraft}
+            >
+              Save Draft
+            </button>
+            <button 
+              type="submit" 
+              className="btn-primary"
+              onClick={() => setIsDraft(false)}
+            >
+              <FiSend /> {isDraft ? 'Submit Note' : 'Submit & Forward'}
             </button>
           </div>
         </form>

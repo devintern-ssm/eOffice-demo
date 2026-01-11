@@ -7,15 +7,29 @@ import './FileList.css'
 const MyFiles = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('lastUsed') // 'lastUsed', 'date', 'number'
 
   const myFiles = files.filter(f => f.createdBy === currentUser.id)
 
   const filteredFiles = myFiles.filter(file => {
     const matchesSearch = 
       file.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      file.subject.toLowerCase().includes(searchTerm.toLowerCase())
+      file.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (file.unNumber && file.unNumber.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
     return matchesSearch && matchesStatus
+  })
+
+  // Sort files
+  const sortedFiles = [...filteredFiles].sort((a, b) => {
+    if (sortBy === 'lastUsed') {
+      return new Date(b.lastUsedDate || b.lastModified) - new Date(a.lastUsedDate || a.lastModified)
+    } else if (sortBy === 'date') {
+      return new Date(b.createdDate) - new Date(a.createdDate)
+    } else if (sortBy === 'number') {
+      return a.fileNumber.localeCompare(b.fileNumber)
+    }
+    return 0
   })
 
   const getStatusColor = (status) => {
@@ -69,15 +83,32 @@ const MyFiles = () => {
             <option value="Closed">Closed</option>
           </select>
         </div>
+        <div className="filter-group">
+          <label>Sort by:</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="filter-select"
+          >
+            <option value="lastUsed">Last Used Date</option>
+            <option value="date">Created Date</option>
+            <option value="number">File Number</option>
+          </select>
+        </div>
       </div>
 
       <div className="file-list-container">
-        {filteredFiles.length > 0 ? (
+        {sortedFiles.length > 0 ? (
           <div className="file-list">
-            {filteredFiles.map(file => (
+            {sortedFiles.map(file => (
               <div key={file.id} className="file-card">
                 <div className="file-card-header">
-                  <div className="file-number">{file.fileNumber}</div>
+                  <div>
+                    <div className="file-number">{file.fileNumber}</div>
+                    {file.unNumber && (
+                      <div className="un-number">UN: {file.unNumber}</div>
+                    )}
+                  </div>
                   <div className="file-badges">
                     {file.priority === 'Urgent' && (
                       <span className="badge priority" style={{ background: getPriorityColor(file.priority) }}>

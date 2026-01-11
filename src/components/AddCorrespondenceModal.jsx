@@ -8,6 +8,9 @@ const AddCorrespondenceModal = ({ file, onClose }) => {
   const [inwardDate, setInwardDate] = useState('')
   const [inwardNumber, setInwardNumber] = useState('')
   const [fileUpload, setFileUpload] = useState(null)
+  const [emailReference, setEmailReference] = useState('')
+  const [pageRange, setPageRange] = useState('')
+  const [isEmailAttachment, setIsEmailAttachment] = useState(false)
 
   const nextCorrNumber = `C/${file.correspondence.length + 1}`
 
@@ -20,7 +23,13 @@ const AddCorrespondenceModal = ({ file, onClose }) => {
     'Report',
     'Court Order',
     'Representation',
+    'Email',
     'Other'
+  ]
+
+  const supportedFormats = [
+    'PDF', 'Excel (.xlsx, .xls)', 'Word (.docx, .doc)', 
+    'JPG/JPEG', 'PNG', 'All printable formats'
   ]
 
   const handleSubmit = (e) => {
@@ -101,31 +110,101 @@ const AddCorrespondenceModal = ({ file, onClose }) => {
           </div>
 
           <div className="form-group">
-            <label>Upload Document *</label>
-            <div className="file-upload-area">
-              <input
-                type="file"
-                id="file-upload"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-                required
-              />
-              <label htmlFor="file-upload" className="file-upload-label">
-                <FiUpload className="upload-icon" />
-                {fileUpload ? (
-                  <div className="file-selected">
-                    <FiFile />
-                    <span>{fileUpload.name}</span>
-                  </div>
-                ) : (
-                  <div>
-                    <div>Click to upload or drag and drop</div>
-                    <small>PDF, DOC, DOCX, JPG, PNG (Max 10MB)</small>
-                  </div>
-                )}
+            <label>Upload Type</label>
+            <div className="upload-type-selector">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="uploadType"
+                  value="file"
+                  checked={!isEmailAttachment}
+                  onChange={() => setIsEmailAttachment(false)}
+                />
+                <span>File Upload</span>
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="uploadType"
+                  value="email"
+                  checked={isEmailAttachment}
+                  onChange={() => setIsEmailAttachment(true)}
+                />
+                <span>Email Reference</span>
               </label>
             </div>
           </div>
+
+          {!isEmailAttachment ? (
+            <>
+              <div className="form-group">
+                <label>Upload Document *</label>
+                <div 
+                  className="file-upload-area"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.currentTarget.classList.add('drag-over')
+                  }}
+                  onDragLeave={(e) => {
+                    e.currentTarget.classList.remove('drag-over')
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.currentTarget.classList.remove('drag-over')
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      setFileUpload(e.dataTransfer.files[0])
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    id="file-upload"
+                    onChange={handleFileChange}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                    style={{ display: 'none' }}
+                    required={!isEmailAttachment}
+                  />
+                  <label htmlFor="file-upload" className="file-upload-label">
+                    <FiUpload className="upload-icon" />
+                    {fileUpload ? (
+                      <div className="file-selected">
+                        <FiFile />
+                        <span>{fileUpload.name}</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <div>Click to upload or <strong>drag and drop</strong> files here</div>
+                        <small>Supported: {supportedFormats.join(', ')} (Max 10MB)</small>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Page Range (Optional)</label>
+                <input
+                  type="text"
+                  value={pageRange}
+                  onChange={(e) => setPageRange(e.target.value)}
+                  placeholder="e.g., 5-10 or 5 (for single page)"
+                />
+                <small>For large documents, specify page range (e.g., if C/36 is on page 5, enter "5")</small>
+              </div>
+            </>
+          ) : (
+            <div className="form-group">
+              <label>Email Reference *</label>
+              <input
+                type="text"
+                value={emailReference}
+                onChange={(e) => setEmailReference(e.target.value)}
+                placeholder="Enter email subject or reference..."
+                required={isEmailAttachment}
+              />
+              <small>Add email reference to correspondence side</small>
+            </div>
+          )}
 
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>

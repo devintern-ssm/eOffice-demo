@@ -10,7 +10,8 @@ import {
   FiBell,
   FiUser,
   FiMenu,
-  FiX
+  FiX,
+  FiBarChart2
 } from 'react-icons/fi'
 import { currentUser } from '../data/dummyData'
 import './Layout.css'
@@ -25,7 +26,8 @@ const Layout = ({ children }) => {
     { path: '/inbox', icon: FiInbox, label: 'Inbox' },
     { path: '/pending-approvals', icon: FiCheckCircle, label: 'Pending Approvals' },
     { path: '/sent-files', icon: FiSend, label: 'Sent Files' },
-    { path: '/all-files', icon: FiFile, label: 'All Files' }
+    { path: '/all-files', icon: FiFile, label: 'All Files' },
+    { path: '/reports', icon: FiBarChart2, label: 'Reports & Logs' }
   ]
 
   const isActive = (path) => {

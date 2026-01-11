@@ -330,9 +330,17 @@ const FileDetail = () => {
             >
               <FiFile /> Review & Approve
             </button>
-            <button className="action-btn">
-              <FiPrinter /> Print
-            </button>
+            {file.status === 'Approved' && (
+              <button 
+                className="action-btn"
+                onClick={() => {
+                  // In real app, this would open print dialog with template
+                  alert('Print functionality: Will print with all approval details (sign, date, time, approver, location). Includes maker, checker, and final approver. (Demo mode)')
+                }}
+              >
+                <FiPrinter /> Print (Final Approved)
+              </button>
+            )}
           </div>
         </div>
 

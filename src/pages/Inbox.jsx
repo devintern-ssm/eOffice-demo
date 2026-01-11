@@ -7,15 +7,18 @@ import './FileList.css'
 const Inbox = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [inboxTypeFilter, setInboxTypeFilter] = useState('all') // 'all', 'Inward', 'Outward'
 
   const inboxFiles = files.filter(f => f.currentAssignee === currentUser.id)
 
   const filteredFiles = inboxFiles.filter(file => {
     const matchesSearch = 
       file.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      file.subject.toLowerCase().includes(searchTerm.toLowerCase())
+      file.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (file.unNumber && file.unNumber.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesInboxType = inboxTypeFilter === 'all' || file.inboxType === inboxTypeFilter
+    return matchesSearch && matchesStatus && matchesInboxType
   })
 
   const getStatusColor = (status) => {
@@ -66,6 +69,18 @@ const Inbox = () => {
             <option value="Closed">Closed</option>
           </select>
         </div>
+        <div className="filter-group">
+          <label>Type:</label>
+          <select
+            value={inboxTypeFilter}
+            onChange={(e) => setInboxTypeFilter(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">All</option>
+            <option value="Inward">Inward (Final Approved)</option>
+            <option value="Outward">Outward (Revision)</option>
+          </select>
+        </div>
       </div>
 
       <div className="file-list-container">
@@ -74,7 +89,12 @@ const Inbox = () => {
             {filteredFiles.map(file => (
               <div key={file.id} className="file-card">
                 <div className="file-card-header">
-                  <div className="file-number">{file.fileNumber}</div>
+                  <div>
+                    <div className="file-number">{file.fileNumber}</div>
+                    {file.unNumber && (
+                      <div className="un-number">UN: {file.unNumber}</div>
+                    )}
+                  </div>
                   <div className="file-badges">
                     {file.priority === 'Urgent' && (
                       <span className="badge priority" style={{ background: getPriorityColor(file.priority) }}>
@@ -83,6 +103,11 @@ const Inbox = () => {
                     )}
                     {file.confidential && (
                       <span className="badge confidential">CONFIDENTIAL</span>
+                    )}
+                    {file.inboxType && (
+                      <span className={`badge inbox-type ${file.inboxType === 'Inward' ? 'inward' : 'outward'}`}>
+                        {file.inboxType}
+                      </span>
                     )}
                     <span className="badge status" style={{ background: getStatusColor(file.status) }}>
                       {file.status}

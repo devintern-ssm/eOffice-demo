@@ -30,6 +30,7 @@ export const files = [
   {
     id: 'file1',
     fileNumber: 'ADMIN/2024/001',
+    unNumber: 'UN-2024-001',
     subject: 'Purchase of Office Equipment - AMC Renewal',
     section: 'Administration',
     status: 'Under Review',
@@ -37,10 +38,18 @@ export const files = [
     createdBy: 'user1',
     createdDate: '2024-01-15',
     lastModified: '2024-01-20',
+    lastUsedDate: '2024-01-20',
     currentAssignee: 'user2',
     confidential: false,
     startPeriod: '2024-01-01',
     endPeriod: null,
+    maker: { id: 'user1', name: 'Rajesh Kumar' },
+    checkers: [
+      { id: 'user2', name: 'Priya Sharma', status: 'checked', date: '2024-01-18' }
+    ],
+    approver: null,
+    inboxType: 'Outward', // Inward for final approved, Outward for revision
+    isDraft: false,
     notes: [
       {
         id: 'note1',
@@ -62,15 +71,18 @@ The AMC for office equipment is hereby renewed for the period 01.02.2024 to 31.0
         author: {
           id: 'user1',
           name: 'Rajesh Kumar',
-          designation: 'Section Officer'
+          designation: 'Section Officer',
+          role: 'Maker'
         },
         date: '2024-01-15T10:30:00',
         status: 'Submitted',
+        isDraft: false,
         references: {
           correspondence: ['C/1'],
           notes: []
         },
-        approvals: []
+        approvals: [],
+        checkerComments: []
       },
       {
         id: 'note2',
@@ -87,16 +99,27 @@ Recommendation: Approve after verification.`,
         author: {
           id: 'user2',
           name: 'Priya Sharma',
-          designation: 'Deputy Director'
+          designation: 'Deputy Director',
+          role: 'Checker'
         },
         date: '2024-01-18T14:20:00',
-        status: 'Approved',
+        status: 'Checked',
+        isDraft: false,
         references: {
           correspondence: ['C/2'],
           notes: ['Note 1']
         },
         approvals: [
           { paragraph: 'A', approvedBy: 'user2', date: '2024-01-18T14:20:00' }
+        ],
+        checkerComments: [
+          {
+            checkerId: 'user2',
+            checkerName: 'Priya Sharma',
+            comment: 'Verified inventory. Quotation is reasonable.',
+            date: '2024-01-18T14:20:00',
+            action: 'checked'
+          }
         ]
       }
     ],
@@ -148,6 +171,7 @@ Recommendation: Approve after verification.`,
   {
     id: 'file2',
     fileNumber: 'ADMIN/2024/002',
+    unNumber: 'UN-2024-002',
     subject: 'Compliance with Audit Observations',
     section: 'Administration',
     status: 'Open',
@@ -155,10 +179,16 @@ Recommendation: Approve after verification.`,
     createdBy: 'user1',
     createdDate: '2024-01-12',
     lastModified: '2024-01-19',
+    lastUsedDate: '2024-01-19',
     currentAssignee: 'user1',
     confidential: false,
     startPeriod: '2024-01-01',
     endPeriod: null,
+    maker: { id: 'user1', name: 'Rajesh Kumar' },
+    checkers: [],
+    approver: null,
+    inboxType: 'Outward',
+    isDraft: false,
     notes: [
       {
         id: 'note3',
@@ -207,6 +237,7 @@ Proposal:
   {
     id: 'file3',
     fileNumber: 'LEGAL/2024/001',
+    unNumber: 'UN-2024-003',
     subject: 'Court Order - Stay on Land Acquisition',
     section: 'Legal',
     status: 'Approved',
@@ -214,10 +245,18 @@ Proposal:
     createdBy: 'user5',
     createdDate: '2024-01-08',
     lastModified: '2024-01-16',
+    lastUsedDate: '2024-01-16',
     currentAssignee: null,
     confidential: true,
     startPeriod: '2024-01-01',
     endPeriod: null,
+    maker: { id: 'user5', name: 'Vikram Singh' },
+    checkers: [
+      { id: 'user2', name: 'Priya Sharma', status: 'approved', date: '2024-01-14' }
+    ],
+    approver: { id: 'user3', name: 'Amit Patel' },
+    inboxType: 'Inward', // Final approved
+    isDraft: false,
     notes: [
       {
         id: 'note4',
@@ -265,6 +304,7 @@ Proposal:
   {
     id: 'file4',
     fileNumber: 'ACCOUNTS/2024/015',
+    unNumber: 'UN-2024-004',
     subject: 'Payment Voucher - Contractor Bill',
     section: 'Accounts',
     status: 'Under Review',
@@ -272,10 +312,16 @@ Proposal:
     createdBy: 'user4',
     createdDate: '2024-01-19',
     lastModified: '2024-01-20',
+    lastUsedDate: '2024-01-20',
     currentAssignee: 'user2',
     confidential: false,
     startPeriod: '2024-01-01',
     endPeriod: null,
+    maker: { id: 'user4', name: 'Sneha Reddy' },
+    checkers: [],
+    approver: null,
+    inboxType: 'Outward',
+    isDraft: false,
     notes: [
       {
         id: 'note5',

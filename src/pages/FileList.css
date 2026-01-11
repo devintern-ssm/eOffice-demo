@@ -117,6 +117,24 @@
   color: #667eea;
 }
 
+.un-number {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.badge.inbox-type {
+  font-size: 10px;
+}
+
+.badge.inbox-type.inward {
+  background: #38b2ac;
+}
+
+.badge.inbox-type.outward {
+  background: #ed8936;
+}
+
 .file-badges {
   display: flex;
   gap: 8px;

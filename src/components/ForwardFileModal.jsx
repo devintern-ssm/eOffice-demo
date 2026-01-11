@@ -8,6 +8,7 @@ const ForwardFileModal = ({ file, onClose }) => {
   const [selectedUsers, setSelectedUsers] = useState([])
   const [remarks, setRemarks] = useState('')
   const [priority, setPriority] = useState('Normal')
+  const [recipientOrder, setRecipientOrder] = useState([])
 
   const filteredUsers = selectedSection
     ? users.filter(u => u.section === selectedSection)
@@ -25,11 +26,25 @@ const ForwardFileModal = ({ file, onClose }) => {
   }
 
   const toggleUser = (userId) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId)
-        ? prev.filter(u => u !== userId)
-        : [...prev, userId]
-    )
+    setSelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        setRecipientOrder(prevOrder => prevOrder.filter(id => id !== userId))
+        return prev.filter(u => u !== userId)
+      } else {
+        setRecipientOrder(prevOrder => [...prevOrder, userId])
+        return [...prev, userId]
+      }
+    })
+  }
+
+  const moveRecipient = (index, direction) => {
+    const newOrder = [...recipientOrder]
+    if (direction === 'up' && index > 0) {
+      [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]]
+    } else if (direction === 'down' && index < newOrder.length - 1) {
+      [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]
+    }
+    setRecipientOrder(newOrder)
   }
 
   return (
@@ -69,6 +84,9 @@ const ForwardFileModal = ({ file, onClose }) => {
 
           <div className="form-group">
             <label>Select Recipients *</label>
+            <small style={{ display: 'block', marginBottom: '8px', color: '#718096' }}>
+              Recipients can be reordered. Order can be changed by any recipient later.
+            </small>
             <div className="users-list">
               {filteredUsers.map(user => (
                 <label key={user.id} className="user-item">
@@ -90,6 +108,42 @@ const ForwardFileModal = ({ file, onClose }) => {
                 <div className="empty-ref">No users found</div>
               )}
             </div>
+            
+            {recipientOrder.length > 1 && (
+              <div className="recipient-order-section">
+                <label>Recipient Order (Can be changed later)</label>
+                <div className="recipient-order-list">
+                  {recipientOrder.map((userId, index) => {
+                    const user = users.find(u => u.id === userId)
+                    return user ? (
+                      <div key={userId} className="recipient-order-item">
+                        <span className="order-number">{index + 1}</span>
+                        <span className="order-name">{user.name}</span>
+                        <div className="order-buttons">
+                          <button
+                            type="button"
+                            onClick={() => moveRecipient(index, 'up')}
+                            disabled={index === 0}
+                            className="order-btn"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveRecipient(index, 'down')}
+                            disabled={index === recipientOrder.length - 1}
+                            className="order-btn"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                    ) : null
+                  })}
+                </div>
+                <small>Recipients can change this order later</small>
+              </div>
+            )}
           </div>
 
           <div className="form-group">

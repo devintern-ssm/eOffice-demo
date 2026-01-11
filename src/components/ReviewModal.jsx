@@ -8,6 +8,9 @@ const ReviewModal = ({ file, onClose }) => {
   const [remarks, setRemarks] = useState('')
   const [forwardTo, setForwardTo] = useState('')
   const [selectedParagraphs, setSelectedParagraphs] = useState([])
+  const [mdApprovalFile, setMdApprovalFile] = useState(null)
+  const [showMdUpload, setShowMdUpload] = useState(false)
+  const [digitalSignature, setDigitalSignature] = useState('')
 
   const latestNote = file.notes[file.notes.length - 1]
 
@@ -68,10 +71,24 @@ const ReviewModal = ({ file, onClose }) => {
               <div className="action-buttons">
                 <button
                   type="button"
+                  className={`action-btn ${action === 'check' ? 'active' : ''}`}
+                  onClick={() => setAction('check')}
+                >
+                  <FiCheck /> Check
+                </button>
+                <button
+                  type="button"
                   className={`action-btn ${action === 'approve' ? 'active' : ''}`}
                   onClick={() => setAction('approve')}
                 >
                   <FiCheck /> Approve
+                </button>
+                <button
+                  type="button"
+                  className={`action-btn reject ${action === 'revert' ? 'active' : ''}`}
+                  onClick={() => setAction('revert')}
+                >
+                  <FiArrowLeft /> Revert
                 </button>
                 <button
                   type="button"
@@ -82,7 +99,7 @@ const ReviewModal = ({ file, onClose }) => {
                 </button>
                 <button
                   type="button"
-                  className={`action-btn reject ${action === 'reject' ? 'active' : ''}`}
+                  className={`action-btn ${action === 'reject' ? 'active' : ''}`}
                   onClick={() => setAction('reject')}
                 >
                   <FiXCircle /> Reject
@@ -94,14 +111,8 @@ const ReviewModal = ({ file, onClose }) => {
                 >
                   Request Clarification
                 </button>
-                <button
-                  type="button"
-                  className={`action-btn ${action === 'return' ? 'active' : ''}`}
-                  onClick={() => setAction('return')}
-                >
-                  <FiArrowLeft /> Return to Originator
-                </button>
               </div>
+              <small>Maker-Checker Workflow: Check (and forward) or Approve (and return) or Revert (to maker)</small>
             </div>
 
             {action === 'approve-conditional' && (
@@ -125,13 +136,63 @@ const ReviewModal = ({ file, onClose }) => {
             )}
 
             <div className="form-group">
-              <label>Remarks</label>
+              <label>Remarks/Comments *</label>
               <textarea
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Enter your remarks, observations, or instructions..."
+                placeholder="Enter your remarks, observations, or instructions. Multiple checkers can add comments sequentially..."
                 rows={6}
+                required
               />
+              <small>Each checker can add their comments. Comments are added sequentially.</small>
+            </div>
+
+            <div className="form-group">
+              <label>MD Approval (Offline)</label>
+              <div className="md-approval-section">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowMdUpload(!showMdUpload)}
+                >
+                  {showMdUpload ? 'Hide' : 'Upload Offline MD Approval'}
+                </button>
+                {showMdUpload && (
+                  <div className="md-upload-area">
+                    <input
+                      type="file"
+                      id="md-approval-upload"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setMdApprovalFile(e.target.files[0])
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor="md-approval-upload" className="file-upload-label">
+                      <FiUpload />
+                      {mdApprovalFile ? (
+                        <span>{mdApprovalFile.name}</span>
+                      ) : (
+                        <span>Upload scanned MD approval</span>
+                      )}
+                    </label>
+                    <small>Any maker or checker can upload physical scanned approval</small>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Digital Signature</label>
+              <input
+                type="text"
+                value={digitalSignature}
+                onChange={(e) => setDigitalSignature(e.target.value)}
+                placeholder="Enter digital signature or select certificate..."
+              />
+              <small>Digital signature (if required/approved by)</small>
             </div>
 
             {action === 'approve' && (

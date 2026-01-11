@@ -8,16 +8,20 @@ const AllFiles = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sectionFilter, setSectionFilter] = useState('all')
+  const [unNumberFilter, setUnNumberFilter] = useState('')
 
   const sections = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
+  const unNumbers = [...new Set(files.map(f => f.unNumber).filter(Boolean))]
 
   const filteredFiles = files.filter(file => {
     const matchesSearch = 
       file.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      file.subject.toLowerCase().includes(searchTerm.toLowerCase())
+      file.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (file.unNumber && file.unNumber.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
     const matchesSection = sectionFilter === 'all' || file.section === sectionFilter
-    return matchesSearch && matchesStatus && matchesSection
+    const matchesUnNumber = !unNumberFilter || file.unNumber === unNumberFilter
+    return matchesSearch && matchesStatus && matchesSection && matchesUnNumber
   })
 
   const getStatusColor = (status) => {
@@ -61,6 +65,7 @@ const AllFiles = () => {
           </select>
         </div>
         <div className="filter-group">
+          <label>Section:</label>
           <select
             value={sectionFilter}
             onChange={(e) => setSectionFilter(e.target.value)}
@@ -72,6 +77,19 @@ const AllFiles = () => {
             ))}
           </select>
         </div>
+        <div className="filter-group">
+          <label>UN Number:</label>
+          <select
+            value={unNumberFilter}
+            onChange={(e) => setUnNumberFilter(e.target.value)}
+            className="filter-select"
+          >
+            <option value="">All UN Numbers</option>
+            {unNumbers.map(un => (
+              <option key={un} value={un}>{un}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="file-list-container">
@@ -80,7 +98,12 @@ const AllFiles = () => {
             {filteredFiles.map(file => (
               <div key={file.id} className="file-card">
                 <div className="file-card-header">
-                  <div className="file-number">{file.fileNumber}</div>
+                  <div>
+                    <div className="file-number">{file.fileNumber}</div>
+                    {file.unNumber && (
+                      <div className="un-number">UN: {file.unNumber}</div>
+                    )}
+                  </div>
                   <div className="file-badges">
                     {file.confidential && (
                       <span className="badge confidential">CONFIDENTIAL</span>

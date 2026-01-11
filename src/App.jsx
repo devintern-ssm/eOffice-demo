@@ -9,6 +9,7 @@ import SentFiles from './pages/SentFiles'
 import AllFiles from './pages/AllFiles'
 import FileDetail from './pages/FileDetail'
 import CreateFile from './pages/CreateFile'
+import Reports from './pages/Reports'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/all-files" element={<AllFiles />} />
           <Route path="/file/:fileId" element={<FileDetail />} />
           <Route path="/create-file" element={<CreateFile />} />
+          <Route path="/reports" element={<Reports />} />
         </Routes>
       </Layout>
     </Router>
