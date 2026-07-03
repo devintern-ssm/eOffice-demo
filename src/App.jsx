@@ -10,8 +10,13 @@ import AllFiles from './pages/AllFiles'
 import FileDetail from './pages/FileDetail'
 import CreateFile from './pages/CreateFile'
 import Reports from './pages/Reports'
+import Login from './pages/Login'
+import { AuthProvider, useAuth } from './auth/AuthContext'
 
-function App() {
+function Shell() {
+  const { user, loading } = useAuth()
+  if (loading) return <div style={{ padding: 40, color: '#718096' }}>Loading…</div>
+  if (!user) return <Login />
   return (
     <Router>
       <Layout>
@@ -28,6 +33,14 @@ function App() {
         </Routes>
       </Layout>
     </Router>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Shell />
+    </AuthProvider>
   )
 }
 

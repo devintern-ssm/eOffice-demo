@@ -1,34 +1,33 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiFile, FiSearch, FiFilter, FiEye } from 'react-icons/fi'
-import { files, currentUser } from '../data/dummyData'
+import { FiFile, FiSearch, FiFilter, FiEye, FiLoader } from 'react-icons/fi'
+import { listFiles } from '../api/files'
+import { FILE_STATUSES, prettyStatus, statusColor } from '../utils/status'
 import './FileList.css'
 
 const SentFiles = () => {
+  const [files, setFiles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const sentFiles = files.filter(f => 
-    f.createdBy === currentUser.id && f.movements.length > 0
-  )
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    listFiles({ sent: true })
+      .then((data) => { if (active) { setFiles(data); setError(null) } })
+      .catch((e) => { if (active) setError(e.message) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
-  const filteredFiles = sentFiles.filter(file => {
-    const matchesSearch = 
-      file.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      file.subject.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredFiles = files.filter((file) => {
+    const term = searchTerm.toLowerCase()
+    const matchesSearch = file.fileNumber.toLowerCase().includes(term) || file.subject.toLowerCase().includes(term)
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
     return matchesSearch && matchesStatus
   })
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Open': return '#48bb78'
-      case 'Under Review': return '#ed8936'
-      case 'Approved': return '#38b2ac'
-      case 'Closed': return '#718096'
-      default: return '#a0aec0'
-    }
-  }
 
   return (
     <div className="file-list-page">
@@ -48,58 +47,44 @@ const SentFiles = () => {
         </div>
         <div className="filter-group">
           <FiFilter className="filter-icon" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="filter-select"
-          >
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="filter-select">
             <option value="all">All Status</option>
-            <option value="Open">Open</option>
-            <option value="Under Review">Under Review</option>
-            <option value="Approved">Approved</option>
-            <option value="Closed">Closed</option>
+            {FILE_STATUSES.map((s) => (
+              <option key={s} value={s}>{prettyStatus(s)}</option>
+            ))}
           </select>
         </div>
       </div>
 
       <div className="file-list-container">
-        {filteredFiles.length > 0 ? (
+        {loading ? (
+          <div className="empty-state"><FiLoader size={48} /><p>Loading…</p></div>
+        ) : error ? (
+          <div className="empty-state"><FiFile size={48} /><p>Couldn’t load sent files: {error}</p></div>
+        ) : filteredFiles.length > 0 ? (
           <div className="file-list">
-            {filteredFiles.map(file => (
+            {filteredFiles.map((file) => (
               <div key={file.id} className="file-card">
                 <div className="file-card-header">
                   <div className="file-number">{file.fileNumber}</div>
                   <div className="file-badges">
-                    <span className="badge status" style={{ background: getStatusColor(file.status) }}>
-                      {file.status}
-                    </span>
+                    <span className="badge status" style={{ background: statusColor(file.status) }}>{prettyStatus(file.status)}</span>
                   </div>
                 </div>
                 <div className="file-subject">{file.subject}</div>
                 <div className="file-meta">
-                  <span className="meta-item">
-                    <strong>Section:</strong> {file.section}
-                  </span>
-                  <span className="meta-item">
-                    <strong>Created:</strong> {new Date(file.createdDate).toLocaleDateString()}
-                  </span>
-                  <span className="meta-item">
-                    <strong>Last Modified:</strong> {new Date(file.lastModified).toLocaleDateString()}
-                  </span>
+                  <span className="meta-item"><strong>Section:</strong> {file.section}</span>
+                  <span className="meta-item"><strong>Created:</strong> {new Date(file.createdDate).toLocaleDateString()}</span>
+                  <span className="meta-item"><strong>Last Modified:</strong> {new Date(file.lastModified).toLocaleDateString()}</span>
                 </div>
                 <div className="file-actions">
-                  <Link to={`/file/${file.id}`} className="btn-view">
-                    <FiEye /> View File
-                  </Link>
+                  <Link to={`/file/${file.id}`} className="btn-view"><FiEye /> View File</Link>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="empty-state">
-            <FiFile size={48} />
-            <p>No sent files</p>
-          </div>
+          <div className="empty-state"><FiFile size={48} /><p>No sent files</p></div>
         )}
       </div>
     </div>

@@ -1,10 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { 
   FiFile, FiPlus, FiSend, FiLock, FiPrinter, FiClock, 
   FiUser, FiChevronDown, FiChevronUp, FiDownload, FiEye
 } from 'react-icons/fi'
-import { getFileById, users } from '../data/dummyData'
+import { getFile } from '../api/files'
+import { viewCorrespondence, downloadCorrespondence } from '../api/correspondence'
+import { removeStep } from '../api/workflow'
+import { routeToDept, returnToMaker, transferFile, closeFile } from '../api/lifecycle'
+import { uploadMdApproval, addNoteComment } from '../api/approvals'
+import { openPrint } from '../api/print'
+import { listUsers } from '../api/users'
+import ActionModal from '../components/ActionModal'
+import { statusColor, prettyStatus } from '../utils/status'
 import AddNoteModal from '../components/AddNoteModal'
 import AddCorrespondenceModal from '../components/AddCorrespondenceModal'
 import ForwardFileModal from '../components/ForwardFileModal'
@@ -13,21 +21,69 @@ import './FileDetail.css'
 
 const FileDetail = () => {
   const { fileId } = useParams()
-  const file = getFileById(fileId)
+  const [file, setFile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [showCorrModal, setShowCorrModal] = useState(false)
   const [showForwardModal, setShowForwardModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
+  const [activeAction, setActiveAction] = useState(null) // 'route' | 'return' | 'transfer' | 'close' | 'md'
+  const [userOptions, setUserOptions] = useState([])
   const [expandedSections, setExpandedSections] = useState({
     fileCover: true,
     movement: false
   })
 
-  if (!file) {
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    getFile(fileId)
+      .then((data) => { if (active) { setFile(data); setError(null) } })
+      .catch((e) => { if (active) setError(e.message) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [fileId])
+
+  const refresh = () => getFile(fileId).then((d) => setFile(d)).catch(() => {})
+
+  const stepColor = (s) => ({ PENDING: '#a0aec0', CHECKED: '#4299e1', APPROVED: '#38b2ac', REVERTED: '#e53e3e', SKIPPED: '#a0aec0' }[s] || '#a0aec0')
+
+  const handleRemoveStep = async (stepId) => {
+    try {
+      await removeStep(fileId, stepId)
+      refresh()
+    } catch (e) {
+      alert(e.message)
+    }
+  }
+
+  const openAction = async (type) => {
+    if (type === 'route') {
+      try { setUserOptions(await listUsers()) } catch { /* ignore */ }
+    }
+    setActiveAction(type)
+  }
+
+  const handleComment = async (noteId) => {
+    const comment = window.prompt('Add a comment to this note:')
+    if (!comment) return
+    try { setFile(await addNoteComment(fileId, noteId, comment)) } catch (e) { alert(e.message) }
+  }
+
+  if (loading) {
+    return (
+      <div className="file-detail">
+        <div className="error-state"><h2>Loading file…</h2></div>
+      </div>
+    )
+  }
+
+  if (error || !file) {
     return (
       <div className="file-detail">
         <div className="error-state">
-          <h2>File not found</h2>
+          <h2>{error ? `Couldn’t load file: ${error}` : 'File not found'}</h2>
           <Link to="/">Go to Dashboard</Link>
         </div>
       </div>
@@ -199,15 +255,7 @@ const FileDetail = () => {
     })
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Open': return '#48bb78'
-      case 'Under Review': return '#ed8936'
-      case 'Approved': return '#38b2ac'
-      case 'Closed': return '#718096'
-      default: return '#a0aec0'
-    }
-  }
+  const getStatusColor = statusColor
 
   return (
     <div className="file-detail">
@@ -243,7 +291,7 @@ const FileDetail = () => {
                     className="status-badge"
                     style={{ background: getStatusColor(file.status) }}
                   >
-                    {file.status}
+                    {prettyStatus(file.status)}
                   </span>
                 </div>
                 {file.confidential && (
@@ -304,6 +352,41 @@ const FileDetail = () => {
             )}
           </div>
 
+          {/* Approval Flow */}
+          {file.steps && file.steps.length > 0 && (
+            <div className="info-section">
+              <div className="section-header"><h3>Approval Flow</h3></div>
+              <div className="section-content">
+                {file.steps.map((s) => (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: '1px solid #edf2f7' }}>
+                    <span style={{ minWidth: 22, height: 22, borderRadius: '50%', background: stepColor(s.status), color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {s.stepOrder}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {s.assigneeName} <span style={{ color: '#718096', fontWeight: 400 }}>({s.roleAtStep})</span>
+                        {file.currentAssignee === s.assigneeId && s.status === 'PENDING' && (
+                          <span style={{ marginLeft: 6, fontSize: 11, color: '#ed8936' }}>● current</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#4a5568' }}>
+                        {prettyStatus(s.status)}
+                        {s.actedAt ? ` · ${new Date(s.actedAt).toLocaleDateString()}` : ''}
+                        {s.signatureName && s.status !== 'PENDING' ? ` · ✍ ${s.signatureName}` : ''}
+                      </div>
+                      {s.remarks && s.status !== 'PENDING' && (
+                        <div style={{ fontSize: 12, color: '#718096', fontStyle: 'italic' }}>{s.remarks}</div>
+                      )}
+                    </div>
+                    {s.status === 'PENDING' && file.currentAssignee !== s.assigneeId && (
+                      <button onClick={() => handleRemoveStep(s.id)} title="Remove reviewer" style={{ border: 'none', background: 'transparent', color: '#e53e3e', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div className="quick-actions">
             <button 
@@ -330,16 +413,36 @@ const FileDetail = () => {
             >
               <FiFile /> Review & Approve
             </button>
-            {file.status === 'Approved' && (
-              <button 
-                className="action-btn"
-                onClick={() => {
-                  // In real app, this would open print dialog with template
-                  alert('Print functionality: Will print with all approval details (sign, date, time, approver, location). Includes maker, checker, and final approver. (Demo mode)')
-                }}
-              >
-                <FiPrinter /> Print (Final Approved)
+            <button className="action-btn" onClick={() => openPrint(file.id, 'noting')}>
+              <FiPrinter /> Print Noting
+            </button>
+            <button className="action-btn" onClick={() => openPrint(file.id, 'correspondence')}>
+              <FiPrinter /> Print Correspondence
+            </button>
+            {file.status === 'UNDER_REVIEW' && (
+              <button className="action-btn" onClick={() => openAction('md')}>
+                <FiFile /> MD Offline Approval
               </button>
+            )}
+            {file.status === 'APPROVED' && (
+              <button className="action-btn" onClick={() => openAction('route')}>
+                <FiSend /> Route to Department
+              </button>
+            )}
+            {file.status === 'ROUTED' && (
+              <button className="action-btn" onClick={() => openAction('return')}>
+                <FiSend /> Return to Maker
+              </button>
+            )}
+            {file.status !== 'CLOSED' && file.status !== 'DRAFT' && (
+              <>
+                <button className="action-btn" onClick={() => openAction('transfer')}>
+                  <FiSend /> Transfer Dept
+                </button>
+                <button className="action-btn" onClick={() => openAction('close')}>
+                  <FiLock /> Close File
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -389,8 +492,24 @@ const FileDetail = () => {
                   </div>
                   {note.status && (
                     <div className="note-status">
-                      Status: <span className="status-text">{note.status}</span>
+                      Status: <span className="status-text">{prettyStatus(note.status)}</span>
+                      {note.isSuoMoto && <span style={{ marginLeft: 8, color: '#805ad5' }}>· Suo-moto</span>}
                     </div>
+                  )}
+                  {note.approvals && note.approvals.length > 0 && (
+                    <div className="note-status" style={{ color: '#38b2ac' }}>
+                      Paragraph approvals: {note.approvals.map((a) => a.paragraph).join(', ')} (by {note.approvals[0].approvedBy})
+                    </div>
+                  )}
+                  {note.checkerComments && note.checkerComments.length > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 12 }}>
+                      {note.checkerComments.map((c, i) => (
+                        <div key={i} style={{ color: '#4a5568', marginTop: 2 }}>💬 <strong>{c.checkerName}:</strong> {c.comment}</div>
+                      ))}
+                    </div>
+                  )}
+                  {file.status !== 'CLOSED' && (
+                    <button className="corr-btn" style={{ marginTop: 6 }} onClick={() => handleComment(note.id)}>＋ Comment</button>
                   )}
                 </div>
               ))}
@@ -425,14 +544,19 @@ const FileDetail = () => {
                             <span>No: {corr.inwardNumber}</span>
                           )}
                         </div>
-                        <div className="corr-actions">
-                          <button className="corr-btn">
-                            <FiEye /> View
-                          </button>
-                          <button className="corr-btn">
-                            <FiDownload /> Download
-                          </button>
-                        </div>
+                        {corr.storageKey && (
+                          <div className="corr-actions">
+                            <button className="corr-btn" onClick={() => viewCorrespondence(file.id, corr.id)}>
+                              <FiEye /> View
+                            </button>
+                            <button
+                              className="corr-btn"
+                              onClick={() => downloadCorrespondence(file.id, corr.id, `${corr.number.replace('/', '-')}.pdf`)}
+                            >
+                              <FiDownload /> Download
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -464,24 +588,78 @@ const FileDetail = () => {
         <AddNoteModal
           file={file}
           onClose={() => setShowNoteModal(false)}
+          onSaved={refresh}
         />
       )}
       {showCorrModal && (
         <AddCorrespondenceModal
           file={file}
           onClose={() => setShowCorrModal(false)}
+          onSaved={refresh}
         />
       )}
       {showForwardModal && (
         <ForwardFileModal
           file={file}
           onClose={() => setShowForwardModal(false)}
+          onSaved={refresh}
         />
       )}
       {showReviewModal && (
         <ReviewModal
           file={file}
           onClose={() => setShowReviewModal(false)}
+          onSaved={refresh}
+        />
+      )}
+      {activeAction === 'route' && (
+        <ActionModal
+          title="Route to Actionable Department"
+          submitLabel="Route"
+          onClose={() => setActiveAction(null)}
+          fields={[
+            { name: 'toUserId', label: 'Send to', type: 'select', required: true, options: userOptions.map((u) => ({ value: u.id, label: `${u.name} — ${u.section} (${u.role})` })) },
+            { name: 'remarks', label: 'Instructions', type: 'textarea' },
+          ]}
+          onSubmit={async (v) => setFile(await routeToDept(fileId, { toUserId: v.toUserId, remarks: v.remarks }))}
+        />
+      )}
+      {activeAction === 'return' && (
+        <ActionModal
+          title="Return to Maker" submitLabel="Return"
+          onClose={() => setActiveAction(null)}
+          fields={[{ name: 'remarks', label: 'Implementation comments', type: 'textarea' }]}
+          onSubmit={async (v) => setFile(await returnToMaker(fileId, { remarks: v.remarks }))}
+        />
+      )}
+      {activeAction === 'transfer' && (
+        <ActionModal
+          title="Transfer to Another Department" submitLabel="Transfer"
+          onClose={() => setActiveAction(null)}
+          fields={[
+            { name: 'toSection', label: 'Department', type: 'select', required: true, options: ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering'].map((s) => ({ value: s, label: s })) },
+            { name: 'reason', label: 'Reason', type: 'textarea', hint: 'The file number stays the same on transfer.' },
+          ]}
+          onSubmit={async (v) => setFile(await transferFile(fileId, { toSection: v.toSection, reason: v.reason }))}
+        />
+      )}
+      {activeAction === 'close' && (
+        <ActionModal
+          title="Close File" submitLabel="Close File"
+          onClose={() => setActiveAction(null)}
+          fields={[{ name: 'reason', label: 'Reason for closing', type: 'textarea', required: true, hint: 'The file becomes read-only; the close date is recorded.' }]}
+          onSubmit={async (v) => setFile(await closeFile(fileId, { reason: v.reason }))}
+        />
+      )}
+      {activeAction === 'md' && (
+        <ActionModal
+          title="Upload Offline MD Approval (PDF)" submitLabel="Upload & Approve"
+          onClose={() => setActiveAction(null)}
+          fields={[
+            { name: 'file', label: 'Scanned approval (PDF)', type: 'file', accept: 'application/pdf', required: true },
+            { name: 'remarks', label: 'Remarks', type: 'text' },
+          ]}
+          onSubmit={async (v) => setFile(await uploadMdApproval(fileId, { remarks: v.remarks, file: v.file }))}
         />
       )}
     </div>

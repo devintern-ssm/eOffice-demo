@@ -1,71 +1,78 @@
 import React, { useState } from 'react'
 import { FiX, FiSend } from 'react-icons/fi'
-import { currentUser } from '../data/dummyData'
+import { useAuth } from '../auth/AuthContext'
+import { addNote } from '../api/notes'
+import { listFiles } from '../api/files'
 import './Modal.css'
 
-const AddNoteModal = ({ file, onClose }) => {
+const AddNoteModal = ({ file, onClose, onSaved }) => {
+  const { user } = useAuth()
   const [noteContent, setNoteContent] = useState('')
   const [selectedCorr, setSelectedCorr] = useState([])
   const [selectedNotes, setSelectedNotes] = useState([])
-  const [forwardTo, setForwardTo] = useState('')
-  const [isDraft, setIsDraft] = useState(false)
+  const [isSuoMoto, setIsSuoMoto] = useState(false)
   const [searchApprovedFiles, setSearchApprovedFiles] = useState('')
   const [approvedFilesResults, setApprovedFilesResults] = useState([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+
+  const save = async (isDraft) => {
+    if (!noteContent.trim()) {
+      setError('Note content is required')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await addNote(file.id, {
+        content: noteContent,
+        isDraft,
+        isSuoMoto,
+        references: {
+          correspondence: selectedCorr,
+          notes: selectedNotes.map((n) => `Note ${n}`),
+        },
+      })
+      onSaved && onSaved()
+      onClose()
+    } catch (err) {
+      setError(err.message)
+      setSubmitting(false)
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (isDraft) {
-      alert('Draft saved successfully! You can continue working on it later. (Demo mode)')
-    } else {
-      alert('Note submitted successfully! (Demo mode)')
-    }
-    onClose()
+    save(false)
   }
 
-  const handleSaveDraft = () => {
-    setIsDraft(true)
-    alert('Draft saved! You can continue working on it later. (Demo mode)')
-    // In real app, this would save as draft
-  }
-
-  const handleSearchApprovedFiles = (searchTerm) => {
+  const handleSearchApprovedFiles = async (searchTerm) => {
     setSearchApprovedFiles(searchTerm)
     if (searchTerm.length > 2) {
-      // In real app, this would search approved files
-      // For demo, show mock results
-      const mockResults = files.filter(f => 
-        f.status === 'Approved' && 
-        (f.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         f.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-      setApprovedFilesResults(mockResults)
+      try {
+        const results = await listFiles({ status: 'APPROVED', search: searchTerm })
+        setApprovedFilesResults(results)
+      } catch {
+        setApprovedFilesResults([])
+      }
     } else {
       setApprovedFilesResults([])
     }
   }
 
   const handleCopyReference = (approvedFile) => {
-    // Copy reference to note content
     const reference = `Refer approved file ${approvedFile.fileNumber}: ${approvedFile.subject}`
-    setNoteContent(prev => prev + '\n' + reference)
+    setNoteContent((prev) => (prev ? `${prev}\n${reference}` : reference))
     setSearchApprovedFiles('')
     setApprovedFilesResults([])
   }
 
   const toggleCorr = (corrNumber) => {
-    setSelectedCorr(prev => 
-      prev.includes(corrNumber)
-        ? prev.filter(c => c !== corrNumber)
-        : [...prev, corrNumber]
-    )
+    setSelectedCorr((prev) => (prev.includes(corrNumber) ? prev.filter((c) => c !== corrNumber) : [...prev, corrNumber]))
   }
 
   const toggleNote = (noteNumber) => {
-    setSelectedNotes(prev => 
-      prev.includes(noteNumber)
-        ? prev.filter(n => n !== noteNumber)
-        : [...prev, noteNumber]
-    )
+    setSelectedNotes((prev) => (prev.includes(noteNumber) ? prev.filter((n) => n !== noteNumber) : [...prev, noteNumber]))
   }
 
   return (
@@ -73,9 +80,7 @@ const AddNoteModal = ({ file, onClose }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Add New Note</h2>
-          <button className="modal-close" onClick={onClose}>
-            <FiX />
-          </button>
+          <button className="modal-close" onClick={onClose}><FiX /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
@@ -86,7 +91,6 @@ const AddNoteModal = ({ file, onClose }) => {
               onChange={(e) => setNoteContent(e.target.value)}
               placeholder="Enter your note here. You can reference correspondence (e.g., Refer C/1) or previous notes (e.g., Refer Note 1)..."
               rows={12}
-              required={!isDraft}
             />
           </div>
 
@@ -102,12 +106,8 @@ const AddNoteModal = ({ file, onClose }) => {
               />
               {approvedFilesResults.length > 0 && (
                 <div className="approved-files-results">
-                  {approvedFilesResults.map(af => (
-                    <div 
-                      key={af.id} 
-                      className="approved-file-item"
-                      onClick={() => handleCopyReference(af)}
-                    >
+                  {approvedFilesResults.map((af) => (
+                    <div key={af.id} className="approved-file-item" onClick={() => handleCopyReference(af)}>
                       <div className="file-ref">{af.fileNumber}</div>
                       <div className="file-subject">{af.subject}</div>
                       <small>Click to copy reference</small>
@@ -123,77 +123,51 @@ const AddNoteModal = ({ file, onClose }) => {
             <div className="form-group">
               <label>Reference Correspondence</label>
               <div className="reference-list">
-                {file.correspondence.map(corr => (
+                {file.correspondence.map((corr) => (
                   <label key={corr.id} className="reference-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedCorr.includes(corr.number)}
-                      onChange={() => toggleCorr(corr.number)}
-                    />
+                    <input type="checkbox" checked={selectedCorr.includes(corr.number)} onChange={() => toggleCorr(corr.number)} />
                     <span>{corr.number} - {corr.title}</span>
                   </label>
                 ))}
-                {file.correspondence.length === 0 && (
-                  <div className="empty-ref">No correspondence available</div>
-                )}
+                {file.correspondence.length === 0 && <div className="empty-ref">No correspondence available</div>}
               </div>
             </div>
 
             <div className="form-group">
               <label>Reference Previous Notes</label>
               <div className="reference-list">
-                {file.notes.map(note => (
+                {file.notes.map((note) => (
                   <label key={note.id} className="reference-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedNotes.includes(note.noteNumber)}
-                      onChange={() => toggleNote(note.noteNumber)}
-                    />
+                    <input type="checkbox" checked={selectedNotes.includes(note.noteNumber)} onChange={() => toggleNote(note.noteNumber)} />
                     <span>Note {note.noteNumber}</span>
                   </label>
                 ))}
-                {file.notes.length === 0 && (
-                  <div className="empty-ref">No previous notes</div>
-                )}
+                {file.notes.length === 0 && <div className="empty-ref">No previous notes</div>}
               </div>
             </div>
           </div>
 
           <div className="form-group">
-            <label>Forward To (Optional)</label>
-            <input
-              type="text"
-              value={forwardTo}
-              onChange={(e) => setForwardTo(e.target.value)}
-              placeholder="Select recipient..."
-            />
-            <small>Leave empty to save as draft</small>
+            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={isSuoMoto} onChange={(e) => setIsSuoMoto(e.target.checked)} />
+              <span>Suo-moto note (internal note with no correspondence)</span>
+            </label>
           </div>
 
           <div className="form-group">
             <label>Author</label>
-            <div className="author-display">
-              {currentUser.name} - {currentUser.designation}
-            </div>
+            <div className="author-display">{user?.name} - {user?.designation}</div>
           </div>
 
+          {error && <div className="form-error" style={{ color: '#e53e3e', marginBottom: 12 }}>{error}</div>}
+
           <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn-draft" onClick={() => save(true)} disabled={submitting}>
+              {submitting ? 'Saving…' : 'Save Draft'}
             </button>
-            <button 
-              type="button" 
-              className="btn-draft" 
-              onClick={handleSaveDraft}
-            >
-              Save Draft
-            </button>
-            <button 
-              type="submit" 
-              className="btn-primary"
-              onClick={() => setIsDraft(false)}
-            >
-              <FiSend /> {isDraft ? 'Submit Note' : 'Submit & Forward'}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              <FiSend /> {submitting ? 'Submitting…' : 'Submit Note'}
             </button>
           </div>
         </form>

@@ -11,14 +11,16 @@ import {
   FiUser,
   FiMenu,
   FiX,
-  FiBarChart2
+  FiBarChart2,
+  FiLogOut
 } from 'react-icons/fi'
-import { currentUser } from '../data/dummyData'
+import { useAuth } from '../auth/AuthContext'
 import './Layout.css'
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const location = useLocation()
+  const { user, logout } = useAuth()
 
   const menuItems = [
     { path: '/', icon: FiHome, label: 'Dashboard' },
@@ -67,10 +69,13 @@ const Layout = ({ children }) => {
           <div className="user-profile">
             <FiUser className="user-icon" />
             <div className="user-info">
-              <span className="user-name">{currentUser.name}</span>
-              <span className="user-designation">{currentUser.designation}</span>
+              <span className="user-name">{user?.name}</span>
+              <span className="user-designation">{user?.designation} · {user?.role}</span>
             </div>
           </div>
+          <button className="icon-button" title="Log out" onClick={logout}>
+            <FiLogOut />
+          </button>
         </div>
       </header>
 

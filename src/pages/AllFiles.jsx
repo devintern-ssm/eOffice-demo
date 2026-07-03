@@ -1,38 +1,45 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiFile, FiSearch, FiFilter, FiEye } from 'react-icons/fi'
-import { files } from '../data/dummyData'
+import { FiFile, FiSearch, FiFilter, FiEye, FiLoader } from 'react-icons/fi'
+import { listFiles } from '../api/files'
+import { FILE_STATUSES, prettyStatus, statusColor } from '../utils/status'
 import './FileList.css'
 
 const AllFiles = () => {
+  const [files, setFiles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sectionFilter, setSectionFilter] = useState('all')
   const [unNumberFilter, setUnNumberFilter] = useState('')
 
   const sections = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
-  const unNumbers = [...new Set(files.map(f => f.unNumber).filter(Boolean))]
 
-  const filteredFiles = files.filter(file => {
-    const matchesSearch = 
-      file.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      file.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (file.unNumber && file.unNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    listFiles()
+      .then((data) => { if (active) { setFiles(data); setError(null) } })
+      .catch((e) => { if (active) setError(e.message) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+
+  const unNumbers = [...new Set(files.map((f) => f.unNumber).filter(Boolean))]
+
+  const filteredFiles = files.filter((file) => {
+    const term = searchTerm.toLowerCase()
+    const matchesSearch =
+      file.fileNumber.toLowerCase().includes(term) ||
+      file.subject.toLowerCase().includes(term) ||
+      (file.unNumber && file.unNumber.toLowerCase().includes(term))
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
     const matchesSection = sectionFilter === 'all' || file.section === sectionFilter
     const matchesUnNumber = !unNumberFilter || file.unNumber === unNumberFilter
     return matchesSearch && matchesStatus && matchesSection && matchesUnNumber
   })
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Open': return '#48bb78'
-      case 'Under Review': return '#ed8936'
-      case 'Approved': return '#38b2ac'
-      case 'Closed': return '#718096'
-      default: return '#a0aec0'
-    }
-  }
 
   return (
     <div className="file-list-page">
@@ -58,10 +65,9 @@ const AllFiles = () => {
             className="filter-select"
           >
             <option value="all">All Status</option>
-            <option value="Open">Open</option>
-            <option value="Under Review">Under Review</option>
-            <option value="Approved">Approved</option>
-            <option value="Closed">Closed</option>
+            {FILE_STATUSES.map((s) => (
+              <option key={s} value={s}>{prettyStatus(s)}</option>
+            ))}
           </select>
         </div>
         <div className="filter-group">
@@ -72,7 +78,7 @@ const AllFiles = () => {
             className="filter-select"
           >
             <option value="all">All Sections</option>
-            {sections.map(section => (
+            {sections.map((section) => (
               <option key={section} value={section}>{section}</option>
             ))}
           </select>
@@ -85,7 +91,7 @@ const AllFiles = () => {
             className="filter-select"
           >
             <option value="">All UN Numbers</option>
-            {unNumbers.map(un => (
+            {unNumbers.map((un) => (
               <option key={un} value={un}>{un}</option>
             ))}
           </select>
@@ -93,9 +99,19 @@ const AllFiles = () => {
       </div>
 
       <div className="file-list-container">
-        {filteredFiles.length > 0 ? (
+        {loading ? (
+          <div className="empty-state">
+            <FiLoader size={48} />
+            <p>Loading files…</p>
+          </div>
+        ) : error ? (
+          <div className="empty-state">
+            <FiFile size={48} />
+            <p>Couldn’t load files: {error}</p>
+          </div>
+        ) : filteredFiles.length > 0 ? (
           <div className="file-list">
-            {filteredFiles.map(file => (
+            {filteredFiles.map((file) => (
               <div key={file.id} className="file-card">
                 <div className="file-card-header">
                   <div>
@@ -108,8 +124,8 @@ const AllFiles = () => {
                     {file.confidential && (
                       <span className="badge confidential">CONFIDENTIAL</span>
                     )}
-                    <span className="badge status" style={{ background: getStatusColor(file.status) }}>
-                      {file.status}
+                    <span className="badge status" style={{ background: statusColor(file.status) }}>
+                      {prettyStatus(file.status)}
                     </span>
                   </div>
                 </div>
