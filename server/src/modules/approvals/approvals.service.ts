@@ -3,6 +3,7 @@ import { ApiError } from '../../utils/http.js';
 import type { AuthUser } from '../../middleware/auth.js';
 import { storage } from '../../services/storage.js';
 import { getFileDetail } from '../files/files.service.js';
+import { notifyData } from '../../services/notify.js';
 
 /**
  * MD approval via uploaded scanned offline approval (S11). Any maker/checker may upload it.
@@ -37,8 +38,10 @@ export async function uploadMdApproval(fileId: string, input: { remarks?: string
     const next = steps.find((s) => s.stepOrder > current.stepOrder && s.status === 'PENDING');
     if (next) {
       await tx.file.update({ where: { id: fileId }, data: { status: 'UNDER_REVIEW', currentHolderId: next.assigneeId, lastUsedAt: new Date() } });
+      if (next.assigneeId !== user.id) await tx.notification.create(notifyData(next.assigneeId, 'FORWARD', `Forwarded to you for review: ${file.subject}`, fileId));
     } else {
       await tx.file.update({ where: { id: fileId }, data: { status: 'APPROVED', currentHolderId: null, lastUsedAt: new Date() } });
+      if (file.createdById !== user.id) await tx.notification.create(notifyData(file.createdById, 'APPROVE', `Your file was approved: ${file.subject}`, fileId));
     }
     await tx.movement.create({ data: { fileId, type: 'APPROVE', actorId: user.id, actorName: user.name, dept: user.section, remarks: `Offline MD approval uploaded (${current.assigneeName})` } });
   });
@@ -83,6 +86,7 @@ export async function assignParagraphApprover(
         remarks: `Assigned ${approver.name} to approve paragraph ${mark} of Note ${note.noteNumber}`,
       },
     });
+    if (approver.id !== user.id) await tx.notification.create(notifyData(approver.id, 'ASSIGN', `You were assigned to approve paragraph ${mark} of Note ${note.noteNumber}: ${file.subject}`, fileId));
   });
 
   return getFileDetail(fileId, user);
@@ -99,5 +103,8 @@ export async function addNoteComment(fileId: string, noteId: string, input: { co
     data: { noteId, authorId: user.id, authorName: user.name, comment: input.comment, action: 'comment' },
   });
   await prisma.movement.create({ data: { fileId, type: 'NOTE_ADDED', actorId: user.id, actorName: user.name, remarks: `Commented on Note ${note.noteNumber}` } });
+  if (file.createdById !== user.id) {
+    await prisma.notification.create(notifyData(file.createdById, 'COMMENT', `New comment on your file: ${file.subject}`, fileId));
+  }
   return getFileDetail(fileId);
 }

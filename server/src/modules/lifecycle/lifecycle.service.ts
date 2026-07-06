@@ -3,6 +3,7 @@ import { prisma } from '../../prisma.js';
 import { ApiError } from '../../utils/http.js';
 import type { AuthUser } from '../../middleware/auth.js';
 import { getFileDetail } from '../files/files.service.js';
+import { notifyData } from '../../services/notify.js';
 
 /** Only the current holder, the originator, or an admin may drive lifecycle actions. */
 function assertHolderOrMaker(file: File, user: AuthUser) {
@@ -23,6 +24,7 @@ export async function routeToDept(fileId: string, input: { toUserId: string; rem
   await prisma.$transaction([
     prisma.file.update({ where: { id: fileId }, data: { status: 'ROUTED', currentHolderId: to.id, lastUsedAt: new Date() } }),
     prisma.movement.create({ data: { fileId, type: 'ROUTE', actorId: user.id, actorName: user.name, toUserId: to.id, toName: to.name, toSection: to.section, remarks: input.remarks || 'Routed for implementation' } }),
+    ...(to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'ROUTE', `File routed to you for action: ${file.subject}`, fileId))] : []),
   ]);
   return getFileDetail(fileId);
 }
@@ -40,6 +42,7 @@ export async function returnToMaker(fileId: string, input: { remarks?: string },
   await prisma.$transaction([
     prisma.file.update({ where: { id: fileId }, data: { status: 'RETURNED', currentHolderId: file.createdById, lastUsedAt: new Date() } }),
     prisma.movement.create({ data: { fileId, type: 'RETURN', actorId: user.id, actorName: user.name, toUserId: file.createdById, toName: maker?.name, remarks: input.remarks || 'Implemented; returned to originator' } }),
+    ...(file.createdById !== user.id ? [prisma.notification.create(notifyData(file.createdById, 'RETURN', `File returned to you: ${file.subject}`, fileId))] : []),
   ]);
   return getFileDetail(fileId);
 }
@@ -55,6 +58,7 @@ export async function transferFile(fileId: string, input: { toSection: string; t
   await prisma.$transaction([
     prisma.file.update({ where: { id: fileId }, data: { section: input.toSection, currentHolderId: to?.id ?? file.currentHolderId, lastUsedAt: new Date() } }),
     prisma.movement.create({ data: { fileId, type: 'TRANSFER', actorId: user.id, actorName: user.name, fromSection: file.section, toSection: input.toSection, toUserId: to?.id, toName: to?.name, remarks: input.reason || `Transferred to ${input.toSection}` } }),
+    ...(to && to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'ASSIGN', `File transferred to you (${input.toSection}): ${file.subject}`, fileId))] : []),
   ]);
   return getFileDetail(fileId);
 }

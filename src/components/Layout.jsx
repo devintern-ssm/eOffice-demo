@@ -7,7 +7,6 @@ import {
   FiCheckCircle,
   FiSend,
   FiSearch,
-  FiBell,
   FiUser,
   FiMenu,
   FiX,
@@ -16,6 +15,7 @@ import {
   FiEdit
 } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
+import NotificationBell from './NotificationBell'
 import './Layout.css'
 
 const Layout = ({ children }) => {
@@ -70,10 +70,7 @@ const Layout = ({ children }) => {
           </div>
         </div>
         <div className="header-right">
-          <button className="icon-button">
-            <FiBell />
-            <span className="badge">3</span>
-          </button>
+          <NotificationBell />
           <div className="user-profile">
             <FiUser className="user-icon" />
             <div className="user-info">

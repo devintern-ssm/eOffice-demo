@@ -27,10 +27,11 @@ model User {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  createdFiles File[]         @relation("FileCreatedBy")
-  heldFiles    File[]         @relation("FileHolder")
-  notes        Note[]
-  steps        WorkflowStep[]
+  createdFiles  File[]         @relation("FileCreatedBy")
+  heldFiles     File[]         @relation("FileHolder")
+  notes         Note[]
+  steps         WorkflowStep[]
+  notifications Notification[]
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,7 @@ model File {
   correspondence  Correspondence[]
   steps           WorkflowStep[]
   movements       Movement[]
+  notifications   Notification[]
 
   @@index([section])
   @@index([status])
@@ -204,6 +206,24 @@ model Movement {
   createdAt   DateTime @default(now())
 
   @@index([fileId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// In-app notifications — one row per recipient per event (assignment/revert/approval)
+// ---------------------------------------------------------------------------
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // FORWARD | CHECK | APPROVE | REVERT | ROUTE | RETURN | ASSIGN | COMMENT
+  message   String
+  fileId    String?
+  file      File?    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
   @@index([createdAt])
 }
 

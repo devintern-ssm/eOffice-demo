@@ -5,6 +5,7 @@ import type { AuthUser } from '../../middleware/auth.js';
 import { allocateFileNumber } from '../../services/numbering.js';
 import { getFileDetail } from '../files/files.service.js';
 import { STEP_ROLES } from '../../utils/domain.js';
+import { notifyData } from '../../services/notify.js';
 
 function roleForStep(requested: string | undefined, userRole: string): string {
   if (requested && (STEP_ROLES as readonly string[]).includes(requested)) return requested;
@@ -76,6 +77,9 @@ export async function forwardFile(fileId: string, input: { recipients: Recipient
         remarks: input.remarks || (file.status === 'REVERTED' ? 'Resubmitted after correction' : `Forwarded for review; number ${displayNumber} assigned`),
       },
     });
+    if (firstPending.assigneeId !== user.id) {
+      await tx.notification.create(notifyData(firstPending.assigneeId, 'FORWARD', `Forwarded to you for review: ${file.subject}`, fileId));
+    }
   });
 
   return getFileDetail(fileId);
@@ -101,6 +105,7 @@ export async function addReviewer(fileId: string, input: { userId: string; role?
     await tx.movement.create({
       data: { fileId, type: 'FORWARD', actorId: user.id, actorName: user.name, toUserId: u.id, toName: u.name, remarks: `Added ${u.name} to the review chain` },
     });
+    if (u.id !== user.id) await tx.notification.create(notifyData(u.id, 'ASSIGN', `You were added as a reviewer: ${file.subject}`, fileId));
     // Re-establish the single-holder invariant if the file was between reviewers (e.g. a
     // lone checker checked with no approver, so the holder was handed back to the originator).
     const pending = await tx.workflowStep.findMany({ where: { fileId, status: 'PENDING' }, orderBy: { stepOrder: 'asc' } });
@@ -141,6 +146,7 @@ export async function assignMaker(fileId: string, input: { makerId: string }, us
         remarks: `Assigned ${maker.name} as Maker (responsible officer)`,
       },
     });
+    if (maker.id !== user.id) await tx.notification.create(notifyData(maker.id, 'ASSIGN', `You were assigned as Maker: ${file.subject}`, fileId));
   });
 
   return getFileDetail(fileId, user);
@@ -247,6 +253,7 @@ export async function actOnFile(
       await tx.movement.create({
         data: { fileId, type: mvType, actorId: user.id, actorName: user.name, toUserId: file.createdById, toName: maker?.name, dept: input.dept || user.section, remarks: input.remarks || label },
       });
+      if (file.createdById !== user.id) await tx.notification.create(notifyData(file.createdById, 'REVERT', `File reverted to you: ${input.remarks || file.subject}`, fileId));
       return;
     }
 
@@ -257,18 +264,21 @@ export async function actOnFile(
       await tx.movement.create({
         data: { fileId, type: mvType, actorId: user.id, actorName: user.name, toUserId: next.assigneeId, toName: next.assigneeName, dept: input.dept || user.section, remarks: input.remarks || label },
       });
+      if (next.assigneeId !== user.id) await tx.notification.create(notifyData(next.assigneeId, 'FORWARD', `Forwarded to you for review: ${file.subject}`, fileId));
     } else if (isApprove) {
       // Final approval.
       await tx.file.update({ where: { id: fileId }, data: { status: 'APPROVED', currentHolderId: null, lastUsedAt: new Date() } });
       await tx.movement.create({
         data: { fileId, type: mvType, actorId: user.id, actorName: user.name, dept: input.dept || user.section, remarks: input.remarks || 'Final approval' },
       });
+      if (file.createdById !== user.id) await tx.notification.create(notifyData(file.createdById, 'APPROVE', `Your file was approved: ${file.subject}`, fileId));
     } else {
       // Checked but no further step: hand back to the originator to add an approver.
       await tx.file.update({ where: { id: fileId }, data: { currentHolderId: file.createdById, lastUsedAt: new Date() } });
       await tx.movement.create({
         data: { fileId, type: mvType, actorId: user.id, actorName: user.name, toUserId: file.createdById, dept: input.dept || user.section, remarks: input.remarks || 'Checked; awaiting approver' },
       });
+      if (file.createdById !== user.id) await tx.notification.create(notifyData(file.createdById, 'CHECK', `Checked; awaiting your action: ${file.subject}`, fileId));
     }
   });
 
