@@ -14,7 +14,7 @@ export const STEP_ROLES = ['CHECKER', 'APPROVER', 'MD'] as const;
 
 export const MOVEMENT_TYPES = [
   'CREATE', 'SUBMIT', 'FORWARD', 'CHECK', 'APPROVE', 'REVERT', 'RETURN',
-  'ROUTE', 'TRANSFER', 'CLOSE', 'UPLOAD', 'NOTE_ADDED', 'SIGN',
+  'ROUTE', 'TRANSFER', 'CLOSE', 'UPLOAD', 'NOTE_ADDED', 'SIGN', 'ASSIGN',
 ] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
@@ -34,4 +34,31 @@ export const SECTION_CODE: Record<string, string> = {
 
 export function deptCodeForSection(section: string): string {
   return SECTION_CODE[section] ?? section.slice(0, 4).toUpperCase();
+}
+
+/**
+ * Allowed correspondence attachment formats (review #6 — multi-format support).
+ * mime -> canonical file extension used when saving/serving the blob.
+ */
+export const ATTACHMENT_TYPES: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/tiff': 'tif',
+};
+
+export function isAllowedAttachment(mime: string): boolean {
+  return Boolean(ATTACHMENT_TYPES[mime]);
+}
+
+/** Canonical extension for a mime type, falling back to a filename's extension. */
+export function extForAttachment(mime: string, originalName?: string): string {
+  if (ATTACHMENT_TYPES[mime]) return ATTACHMENT_TYPES[mime];
+  const dot = originalName?.lastIndexOf('.');
+  if (originalName && dot !== undefined && dot > 0) return originalName.slice(dot + 1).toLowerCase();
+  return 'bin';
 }

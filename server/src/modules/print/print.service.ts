@@ -23,10 +23,12 @@ export async function renderPrint(fileId: string, side: 'noting' | 'corresponden
       <div class="note-foot muted">— ${esc(n.author?.name)}, ${esc(n.author?.designation)} (${esc(n.author?.role)}) · Status: ${esc(n.status)}</div>
     </div>`).join('');
 
+  const pageRange = (c: any) => (c.startPage ? (c.endPage && c.endPage !== c.startPage ? `${c.startPage}–${c.endPage}` : `${c.startPage}`) : '—');
   const corrHtml = (f.correspondence || []).map((c: any) => `
     <tr><td>${esc(c.number)}</td><td>${esc(c.type)}</td><td>${esc(c.title)}</td>
         <td>${c.inwardDate ? esc(new Date(c.inwardDate).toLocaleDateString()) : '—'}</td>
-        <td>${esc(c.inwardNumber || '—')}</td></tr>`).join('');
+        <td>${esc(c.inwardNumber || '—')}</td>
+        <td>${esc(pageRange(c))}</td></tr>`).join('');
 
   const stepsHtml = (f.steps || []).map((s: any) => `
     <tr>
@@ -41,7 +43,7 @@ export async function renderPrint(fileId: string, side: 'noting' | 'corresponden
 
   const body = side === 'noting'
     ? `<h2>${sideTitle}</h2>${notesHtml || '<p class="muted">No notes.</p>'}`
-    : `<h2>${sideTitle}</h2><table class="grid"><thead><tr><th>No.</th><th>Type</th><th>Title</th><th>Inward Date</th><th>Inward No.</th></tr></thead><tbody>${corrHtml || '<tr><td colspan="5" class="muted">No correspondence.</td></tr>'}</tbody></table>`;
+    : `<h2>${sideTitle}</h2><table class="grid"><thead><tr><th>No.</th><th>Type</th><th>Title</th><th>Inward Date</th><th>Inward No.</th><th>Pages</th></tr></thead><tbody>${corrHtml || '<tr><td colspan="6" class="muted">No correspondence.</td></tr>'}</tbody></table>`;
 
   return `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(f.fileNumber)} — ${sideTitle}</title>
 <style>

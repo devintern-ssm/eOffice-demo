@@ -18,12 +18,17 @@ const AddCorrespondenceModal = ({ file, onClose, onSaved }) => {
 
   const documentTypes = ['Letter', 'Bill', 'Voucher', 'Order', 'Circular', 'Report', 'Court Order', 'Representation', 'Email', 'Other']
 
+  // Multi-format support (review #6): PDF, Word, Excel and common image scans.
+  const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.tif,.tiff,application/pdf,image/*'
+  const ALLOWED_EXT = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'tif', 'tiff']
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     if (!isEmailAttachment) {
-      if (!fileUpload) { setError('Please choose a PDF file'); return }
-      if (fileUpload.type !== 'application/pdf') { setError('Phase 1 supports PDF files only'); return }
+      if (!fileUpload) { setError('Please choose a file to attach'); return }
+      const ext = fileUpload.name.split('.').pop()?.toLowerCase()
+      if (!ALLOWED_EXT.includes(ext)) { setError(`Unsupported file type. Allowed: ${ALLOWED_EXT.join(', ')}`); return }
     } else if (!emailReference.trim()) {
       setError('Please enter an email reference')
       return
@@ -93,7 +98,7 @@ const AddCorrespondenceModal = ({ file, onClose, onSaved }) => {
             <div className="upload-type-selector">
               <label className="radio-label">
                 <input type="radio" name="uploadType" checked={!isEmailAttachment} onChange={() => setIsEmailAttachment(false)} />
-                <span>PDF Upload</span>
+                <span>File Upload</span>
               </label>
               <label className="radio-label">
                 <input type="radio" name="uploadType" checked={isEmailAttachment} onChange={() => setIsEmailAttachment(true)} />
@@ -104,7 +109,7 @@ const AddCorrespondenceModal = ({ file, onClose, onSaved }) => {
 
           {!isEmailAttachment ? (
             <div className="form-group">
-              <label>Upload Document (PDF) *</label>
+              <label>Upload Document *</label>
               <div
                 className="file-upload-area"
                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over') }}
@@ -115,15 +120,15 @@ const AddCorrespondenceModal = ({ file, onClose, onSaved }) => {
                   if (e.dataTransfer.files && e.dataTransfer.files[0]) setFileUpload(e.dataTransfer.files[0])
                 }}
               >
-                <input type="file" id="file-upload" onChange={handleFileChange} accept="application/pdf,.pdf" style={{ display: 'none' }} />
+                <input type="file" id="file-upload" onChange={handleFileChange} accept={ACCEPT} style={{ display: 'none' }} />
                 <label htmlFor="file-upload" className="file-upload-label">
                   <FiUpload className="upload-icon" />
                   {fileUpload ? (
                     <div className="file-selected"><FiFile /><span>{fileUpload.name}</span></div>
                   ) : (
                     <div>
-                      <div>Click to upload or <strong>drag and drop</strong> a PDF here</div>
-                      <small>PDF only (max 10MB). Other formats arrive in Phase 2.</small>
+                      <div>Click to upload or <strong>drag and drop</strong> a file here</div>
+                      <small>PDF, Word, Excel or image (max 20MB). Multi-page PDFs are paged continuously.</small>
                     </div>
                   )}
                 </label>

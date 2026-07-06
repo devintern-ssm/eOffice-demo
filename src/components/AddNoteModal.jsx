@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { FiX, FiSend } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import { addNote } from '../api/notes'
 import { listFiles } from '../api/files'
+import { listUsers, stepRoleForUser } from '../api/users'
+import { forwardFile, addReviewer, assignMaker } from '../api/workflow'
 import './Modal.css'
 
 const AddNoteModal = ({ file, onClose, onSaved }) => {
@@ -15,6 +17,46 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
   const [approvedFilesResults, setApprovedFilesResults] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  // Role assignment while creating a note (review #1)
+  const [users, setUsers] = useState([])
+  const [makerId, setMakerId] = useState(user?.id || '')
+  const [checkerIds, setCheckerIds] = useState([])
+
+  // Assigning a chain only makes sense before/at review; not on approved/closed files.
+  const canAssign = ['DRAFT', 'SUBMITTED', 'REVERTED', 'UNDER_REVIEW'].includes(file.status)
+  const forwardable = ['DRAFT', 'SUBMITTED', 'REVERTED'].includes(file.status)
+
+  useEffect(() => {
+    if (!canAssign) return
+    listUsers().then(setUsers).catch(() => {})
+  }, [canAssign])
+
+  const toggleChecker = (id) => {
+    setCheckerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const applyAssignments = async () => {
+    const recipients = checkerIds
+      .map((id) => users.find((u) => u.id === id))
+      .filter(Boolean)
+      .map((u) => ({ userId: u.id, role: stepRoleForUser(u.role) }))
+
+    if (recipients.length) {
+      if (forwardable) {
+        await forwardFile(file.id, { recipients, remarks: '' })
+      } else {
+        // eslint-disable-next-line no-restricted-syntax
+        for (const r of recipients) {
+          // eslint-disable-next-line no-await-in-loop
+          await addReviewer(file.id, r)
+        }
+      }
+    } else if (forwardable && makerId && makerId !== user?.id) {
+      // No checkers, but a different responsible officer was named → reassign the Maker.
+      await assignMaker(file.id, makerId)
+    }
+  }
 
   const save = async (isDraft) => {
     if (!noteContent.trim()) {
@@ -33,6 +75,8 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
           notes: selectedNotes.map((n) => `Note ${n}`),
         },
       })
+      // Assignments apply on Submit only (a draft stays with its owner).
+      if (!isDraft && canAssign) await applyAssignments()
       onSaved && onSaved()
       onClose()
     } catch (err) {
@@ -90,7 +134,7 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
               value={noteContent}
               onChange={(e) => setNoteContent(e.target.value)}
               placeholder="Enter your note here. You can reference correspondence (e.g., Refer C/1) or previous notes (e.g., Refer Note 1)..."
-              rows={12}
+              rows={10}
             />
           </div>
 
@@ -147,16 +191,50 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
             </div>
           </div>
 
+          {/* Assign Maker & Checker (review #1) */}
+          {canAssign && (
+            <div className="form-group" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+              <label style={{ fontWeight: 600 }}>Assign roles (optional)</label>
+              <small style={{ display: 'block', marginBottom: 8, color: '#718096' }}>
+                Applied when you <strong>Submit</strong> the note. A saved draft stays with you.
+              </small>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Maker (responsible officer)</label>
+                  <select value={makerId} onChange={(e) => setMakerId(e.target.value)} disabled={!forwardable}>
+                    <option value={user?.id || ''}>{user?.name} (you)</option>
+                    {users.filter((u) => u.id !== user?.id).map((u) => (
+                      <option key={u.id} value={u.id}>{u.name} — {u.section} ({u.role})</option>
+                    ))}
+                  </select>
+                  {!forwardable && <small>Maker is fixed once the file is under review.</small>}
+                </div>
+                <div className="form-group">
+                  <label>Checker(s){file.status === 'UNDER_REVIEW' ? ' to add' : ''}</label>
+                  <div className="reference-list" style={{ maxHeight: 140 }}>
+                    {users.filter((u) => u.id !== user?.id && u.role !== 'ADMIN').map((u) => (
+                      <label key={u.id} className="reference-item">
+                        <input type="checkbox" checked={checkerIds.includes(u.id)} onChange={() => toggleChecker(u.id)} />
+                        <span>{u.name} <em style={{ color: '#718096' }}>({stepRoleForUser(u.role)})</em></span>
+                      </label>
+                    ))}
+                    {users.length === 0 && <div className="empty-ref">Loading users…</div>}
+                  </div>
+                </div>
+              </div>
+              {checkerIds.length > 0 && (
+                <small style={{ color: '#4c51bf' }}>
+                  On submit, the file is sent to {checkerIds.length} reviewer(s) in the order selected.
+                </small>
+              )}
+            </div>
+          )}
+
           <div className="form-group">
             <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={isSuoMoto} onChange={(e) => setIsSuoMoto(e.target.checked)} />
               <span>Suo-moto note (internal note with no correspondence)</span>
             </label>
-          </div>
-
-          <div className="form-group">
-            <label>Author</label>
-            <div className="author-display">{user?.name} - {user?.designation}</div>
           </div>
 
           {error && <div className="form-error" style={{ color: '#e53e3e', marginBottom: 12 }}>{error}</div>}

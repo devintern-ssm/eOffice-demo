@@ -9,6 +9,7 @@ import SentFiles from './pages/SentFiles'
 import AllFiles from './pages/AllFiles'
 import FileDetail from './pages/FileDetail'
 import CreateFile from './pages/CreateFile'
+import Drafts from './pages/Drafts'
 import Reports from './pages/Reports'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -27,6 +28,7 @@ function Shell() {
           <Route path="/pending-approvals" element={<PendingApprovals />} />
           <Route path="/sent-files" element={<SentFiles />} />
           <Route path="/all-files" element={<AllFiles />} />
+          <Route path="/drafts" element={<Drafts />} />
           <Route path="/file/:fileId" element={<FileDetail />} />
           <Route path="/create-file" element={<CreateFile />} />
           <Route path="/reports" element={<Reports />} />

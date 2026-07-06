@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { asyncHandler } from '../../utils/http.js';
+import { asyncHandler, ApiError } from '../../utils/http.js';
 import { authenticate } from '../../middleware/auth.js';
 import { SECTIONS } from '../../utils/domain.js';
 import {
@@ -39,6 +39,7 @@ filesRouter.get('/', asyncHandler(async (req, res) => {
       holder: req.query.holder === 'true',
       pending: req.query.pending === 'true',
       sent: req.query.sent === 'true',
+      draft: req.query.draft === 'true',
     },
     req.user!,
   );
@@ -62,15 +63,24 @@ const requireFileAccess = asyncHandler(async (req, _res, next) => {
   next();
 });
 
-filesRouter.use('/:id/notes', requireFileAccess, notesRouter);
-filesRouter.use('/:id/correspondence', requireFileAccess, correspondenceRouter);
+// The (super) ADMIN is an oversight role: reports, users and file metadata — but NOT the
+// Noting/Correspondence content (review #4). Block admins from those modules & their prints.
+const blockAdminContent = (req: any, _res: any, next: any) => {
+  if (req.user?.role === 'ADMIN') {
+    throw ApiError.forbidden('Admins do not have access to the Noting and Correspondence modules');
+  }
+  next();
+};
+
+filesRouter.use('/:id/notes', requireFileAccess, blockAdminContent, notesRouter);
+filesRouter.use('/:id/correspondence', requireFileAccess, blockAdminContent, correspondenceRouter);
 filesRouter.use('/:id', requireFileAccess, workflowRouter);   // /:id/forward, /:id/action, /:id/steps
 filesRouter.use('/:id', requireFileAccess, lifecycleRouter);  // /:id/route, /:id/return, /:id/transfer, /:id/close
 filesRouter.use('/:id', requireFileAccess, approvalsRouter);  // /:id/md-approval, /:id/notes/:noteId/comments
-filesRouter.use('/:id', requireFileAccess, printRouter);      // /:id/print
+filesRouter.use('/:id', requireFileAccess, printRouter);      // /:id/print (admin guarded inside)
 
 filesRouter.get('/:id', requireFileAccess, asyncHandler(async (req, res) => {
-  const file = await getFileDetail(req.params.id);
+  const file = await getFileDetail(req.params.id, req.user!);
   res.json({ file });
 }));
 

@@ -7,11 +7,13 @@ import './Reports.css'
 
 const SECTIONS = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
 const td = { padding: '9px 12px', borderBottom: '1px solid #edf2f7', verticalAlign: 'top' }
+const th = { padding: '10px 12px', borderBottom: '1px solid #e2e8f0' }
 
 const Reports = () => {
-  const [data, setData] = useState({ rows: [], summary: {} })
+  const [data, setData] = useState({ rows: [], files: [], summary: {} })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [tab, setTab] = useState('files') // 'files' (register) | 'log' (activity)
   const [section, setSection] = useState('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -35,11 +37,21 @@ const Reports = () => {
     { label: 'Closed', value: summary.closed ?? 0 },
   ]
 
+  const tabBtn = (id, label) => (
+    <button
+      onClick={() => setTab(id)}
+      style={{
+        padding: '8px 16px', borderRadius: 8, border: '1px solid #cbd5e0', cursor: 'pointer',
+        background: tab === id ? '#4c51bf' : '#fff', color: tab === id ? '#fff' : '#4a5568', fontWeight: 600,
+      }}
+    >{label}</button>
+  )
+
   return (
     <div className="reports-page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Reports &amp; Logs</h1>
-        <button className="btn-primary" onClick={() => exportReport({ section, from, to, search })}>
+        <button className="btn-primary" onClick={() => exportReport({ section, from, to, search }, tab)}>
           <FiDownload /> Export CSV
         </button>
       </div>
@@ -53,6 +65,11 @@ const Reports = () => {
         ))}
       </div>
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {tabBtn('files', 'All Files')}
+        {tabBtn('log', 'Activity Log')}
+      </div>
+
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 220 }}>
           <FiSearch />
@@ -62,7 +79,7 @@ const Reports = () => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FiFilter />
           <select value={section} onChange={(e) => setSection(e.target.value)} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e0' }}>
-            <option value="all">All Sections</option>
+            <option value="all">All Departments</option>
             {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
@@ -73,13 +90,33 @@ const Reports = () => {
       <div style={{ background: '#fff', borderRadius: 10, overflow: 'auto' }}>
         {loading ? <div style={{ padding: 20, color: '#718096' }}>Loading…</div>
           : error ? <div style={{ padding: 20, color: '#e53e3e' }}>Couldn’t load report: {error}</div>
-          : (
+          : tab === 'files' ? (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ textAlign: 'left', background: '#f7fafc' }}>
-                  {['Date', 'File', 'Subject', 'Section', 'Action', 'Actor', 'To', 'Remarks'].map((h) => (
-                    <th key={h} style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
-                  ))}
+                  {['File Number', 'Subject', 'Department', 'Status', 'Submitted By', 'Current Holder', 'Created'].map((h) => <th key={h} style={th}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {(data.files || []).map((f) => (
+                  <tr key={f.id}>
+                    <td style={td}><Link to={`/file/${f.id}`}>{f.fileNumber}</Link>{f.confidential && <FiLockMark />}</td>
+                    <td style={td}>{f.subject}</td>
+                    <td style={td}>{f.department}</td>
+                    <td style={td}>{prettyStatus(f.status)}</td>
+                    <td style={td}>{f.submittedBy || '—'}</td>
+                    <td style={td}>{f.holder || '—'}</td>
+                    <td style={td}>{new Date(f.createdDate).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {(data.files || []).length === 0 && <tr><td style={td} colSpan={7}>No files.</td></tr>}
+              </tbody>
+            </table>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', background: '#f7fafc' }}>
+                  {['Date', 'File', 'Subject', 'Section', 'Action', 'Actor', 'To', 'Remarks'].map((h) => <th key={h} style={th}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -103,5 +140,7 @@ const Reports = () => {
     </div>
   )
 }
+
+const FiLockMark = () => <span title="Confidential" style={{ marginLeft: 6, color: '#e53e3e' }}>🔒</span>
 
 export default Reports

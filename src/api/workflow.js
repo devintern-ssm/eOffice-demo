@@ -15,6 +15,11 @@ export function addReviewer(fileId, body) {
   return apiFetch(`/files/${fileId}/steps`, { method: 'POST', body: JSON.stringify(body) }).then((d) => d.file)
 }
 
+/** Assign/reassign the Maker (responsible officer). body: { makerId } */
+export function assignMaker(fileId, makerId) {
+  return apiFetch(`/files/${fileId}/assign-maker`, { method: 'POST', body: JSON.stringify({ makerId }) }).then((d) => d.file)
+}
+
 /** Remove a pending reviewer step. */
 export function removeStep(fileId, stepId) {
   return apiFetch(`/files/${fileId}/steps/${stepId}`, { method: 'DELETE' }).then((d) => d.file)

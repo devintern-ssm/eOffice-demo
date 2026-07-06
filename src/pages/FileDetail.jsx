@@ -1,26 +1,29 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { 
-  FiFile, FiPlus, FiSend, FiLock, FiPrinter, FiClock, 
-  FiUser, FiChevronDown, FiChevronUp, FiDownload, FiEye
+import {
+  FiFile, FiPlus, FiSend, FiLock, FiPrinter, FiUser, FiChevronDown, FiChevronUp,
+  FiDownload, FiEye, FiMaximize2, FiMinimize2, FiUserCheck, FiEyeOff
 } from 'react-icons/fi'
 import { getFile } from '../api/files'
-import { viewCorrespondence, downloadCorrespondence } from '../api/correspondence'
+import { viewCorrespondence, downloadCorrespondence, loadCorrespondenceUrl } from '../api/correspondence'
 import { removeStep } from '../api/workflow'
 import { routeToDept, returnToMaker, transferFile, closeFile } from '../api/lifecycle'
 import { uploadMdApproval, addNoteComment } from '../api/approvals'
 import { openPrint } from '../api/print'
 import { listUsers } from '../api/users'
+import { useAuth } from '../auth/AuthContext'
 import ActionModal from '../components/ActionModal'
 import { statusColor, prettyStatus } from '../utils/status'
 import AddNoteModal from '../components/AddNoteModal'
 import AddCorrespondenceModal from '../components/AddCorrespondenceModal'
 import ForwardFileModal from '../components/ForwardFileModal'
 import ReviewModal from '../components/ReviewModal'
+import AssignRolesModal from '../components/AssignRolesModal'
 import './FileDetail.css'
 
 const FileDetail = () => {
   const { fileId } = useParams()
+  const { user } = useAuth()
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -28,12 +31,13 @@ const FileDetail = () => {
   const [showCorrModal, setShowCorrModal] = useState(false)
   const [showForwardModal, setShowForwardModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
+  const [showAssignModal, setShowAssignModal] = useState(false)
   const [activeAction, setActiveAction] = useState(null) // 'route' | 'return' | 'transfer' | 'close' | 'md'
   const [userOptions, setUserOptions] = useState([])
-  const [expandedSections, setExpandedSections] = useState({
-    fileCover: true,
-    movement: false
-  })
+  const [maximized, setMaximized] = useState(null) // null | 'noting' | 'correspondence'
+  const [preview, setPreview] = useState(null) // { corr, url, renderable }
+  const previewUrlRef = useRef(null)
+  const [expandedSections, setExpandedSections] = useState({ fileCover: true, movement: false })
 
   useEffect(() => {
     let active = true
@@ -45,17 +49,15 @@ const FileDetail = () => {
     return () => { active = false }
   }, [fileId])
 
+  // Revoke the inline-preview object URL on unmount.
+  useEffect(() => () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current) }, [])
+
   const refresh = () => getFile(fileId).then((d) => setFile(d)).catch(() => {})
 
   const stepColor = (s) => ({ PENDING: '#a0aec0', CHECKED: '#4299e1', APPROVED: '#38b2ac', REVERTED: '#e53e3e', SKIPPED: '#a0aec0' }[s] || '#a0aec0')
 
   const handleRemoveStep = async (stepId) => {
-    try {
-      await removeStep(fileId, stepId)
-      refresh()
-    } catch (e) {
-      alert(e.message)
-    }
+    try { await removeStep(fileId, stepId); refresh() } catch (e) { alert(e.message) }
   }
 
   const openAction = async (type) => {
@@ -71,14 +73,39 @@ const FileDetail = () => {
     try { setFile(await addNoteComment(fileId, noteId, comment)) } catch (e) { alert(e.message) }
   }
 
-  if (loading) {
-    return (
-      <div className="file-detail">
-        <div className="error-state"><h2>Loading file…</h2></div>
-      </div>
-    )
+  const clearPreview = () => {
+    if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null }
+    setPreview(null)
   }
 
+  // Open a correspondence document inline on the correspondence side (review #3).
+  const openCorrInline = async (corr) => {
+    if (maximized === 'noting') setMaximized(null) // ensure the correspondence side is visible
+    if (!corr.storageKey) { clearPreview(); setPreview({ corr, url: null, renderable: false }); return }
+    try {
+      const url = await loadCorrespondenceUrl(fileId, corr.id)
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = url
+      const mime = corr.mime || ''
+      const renderable = mime.includes('pdf') || mime.startsWith('image/')
+      setPreview({ corr, url, renderable })
+    } catch (e) { alert(e.message) }
+  }
+
+  const scrollToNote = (noteNumber) => {
+    const note = (file?.notes || []).find((n) => n.noteNumber === noteNumber)
+    if (!note) return
+    const el = document.getElementById(`note-${note.id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('highlighted')
+      setTimeout(() => el.classList.remove('highlighted'), 3000)
+    }
+  }
+
+  if (loading) {
+    return <div className="file-detail"><div className="error-state"><h2>Loading file…</h2></div></div>
+  }
   if (error || !file) {
     return (
       <div className="file-detail">
@@ -90,172 +117,57 @@ const FileDetail = () => {
     )
   }
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }))
-  }
+  const isAdmin = user?.role === 'ADMIN' || file.contentRestricted
+  const draftNotes = (file.notes || []).filter((n) => n.status === 'DRAFT')
+
+  const toggleSection = (section) => setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }))
 
   const handleReferenceClick = (ref) => {
-    // Normalize the reference (handle C/1, C/12, etc.)
     const normalizedRef = ref.trim()
-    
     if (normalizedRef.startsWith('C/')) {
-      // Check if file has correspondence
-      if (!file.correspondence || file.correspondence.length === 0) {
-        alert('No correspondence available in this file')
-        return
-      }
-      
-      // Find correspondence by number (e.g., "C/1", "C/12")
-      const corr = file.correspondence.find(c => c.number === normalizedRef)
-      if (!corr) {
-        alert(`Correspondence ${normalizedRef} not found. Available: ${file.correspondence.map(c => c.number).join(', ')}`)
-        return
-      }
-      
-      // Wait a bit for DOM to be ready, then find and scroll to element
+      if (!file.correspondence || file.correspondence.length === 0) { alert('No correspondence available in this file'); return }
+      const corr = file.correspondence.find((c) => c.number === normalizedRef)
+      if (!corr) { alert(`Correspondence ${normalizedRef} not found. Available: ${file.correspondence.map((c) => c.number).join(', ')}`); return }
+      // Open the document inline on the correspondence side…
+      openCorrInline(corr)
+      // …and scroll/highlight its card.
       setTimeout(() => {
-        // Try multiple ways to find the element
-        let element = document.getElementById(`corr-${corr.id}`)
-        if (!element) {
-          // Try finding by data attribute
-          element = document.querySelector(`[data-corr-number="${normalizedRef}"]`)
-        }
-        
+        const element = document.getElementById(`corr-${corr.id}`) || document.querySelector(`[data-corr-number="${normalizedRef}"]`)
         if (element) {
-          // First, make sure the correspondence side is visible
-          const correspondenceSide = document.querySelector('.correspondence-side')
-          if (correspondenceSide) {
-            // Scroll the correspondence side into view first
-            correspondenceSide.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-          }
-          
-          // Then scroll within the correspondence container
-          const container = document.querySelector('.correspondence-container')
-          if (container) {
-            // Wait a bit more for the scroll to start
-            setTimeout(() => {
-              // Calculate scroll position
-              const elementTop = element.offsetTop
-              const containerHeight = container.clientHeight
-              const elementHeight = element.offsetHeight
-              
-              // Center the element in the container
-              const scrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2)
-              
-              container.scrollTo({ 
-                top: Math.max(0, scrollTop), 
-                behavior: 'smooth' 
-              })
-              
-              // Highlight the element
-              element.classList.add('highlighted')
-              
-              setTimeout(() => {
-                element.classList.remove('highlighted')
-              }, 3000)
-            }, 300)
-          } else {
-            // Fallback: scroll element into view
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            element.classList.add('highlighted')
-            setTimeout(() => {
-              element.classList.remove('highlighted')
-            }, 3000)
-          }
-        } else {
-          console.error('Correspondence element not found:', `corr-${corr.id}`, 'Reference:', normalizedRef)
-          alert(`Could not find correspondence ${normalizedRef} in the page. Please scroll down to see the Correspondence Side.`)
-        }
-      }, 100)
-    } else if (normalizedRef.startsWith('Note ')) {
-      const noteNumber = parseInt(normalizedRef.replace('Note ', ''))
-      const note = file.notes.find(n => n.noteNumber === noteNumber)
-      if (note) {
-        const element = document.getElementById(`note-${note.id}`)
-        if (element) {
-          // Scroll the notes container
-          const container = document.querySelector('.notes-container')
-          if (container) {
-            const containerRect = container.getBoundingClientRect()
-            const elementRect = element.getBoundingClientRect()
-            const scrollTop = container.scrollTop + (elementRect.top - containerRect.top) - (containerRect.height / 2) + (elementRect.height / 2)
-            container.scrollTo({ top: scrollTop, behavior: 'smooth' })
-          } else {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
-          
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
           element.classList.add('highlighted')
-          
-          setTimeout(() => {
-            element.classList.remove('highlighted')
-          }, 3000)
+          setTimeout(() => element.classList.remove('highlighted'), 3000)
         }
-      }
+      }, 120)
+    } else if (normalizedRef.startsWith('Note ')) {
+      scrollToNote(parseInt(normalizedRef.replace('Note ', ''), 10))
     }
   }
 
   const renderNoteContent = (content) => {
-    // More flexible regex to catch various patterns:
-    // - "Refer C/1", "Refer C/12"
-    // - "at C/1", "at C/12"
-    // - "quotation C/1", "bill C/1"
-    // - "C/1", "C/12" (standalone)
-    // - "Refer Note 1", "Refer Note 2"
-    // - "Note 1", "Note 2" (standalone)
     const referencePattern = /(?:Refer\s+)?(?:at\s+)?(?:quotation|bill|document|order|report|letter|voucher|circular|representation)?\s*(C\/\d+|Note\s+\d+)/gi
-    
     const parts = []
     let lastIndex = 0
     let match
-    
     while ((match = referencePattern.exec(content)) !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        parts.push({ type: 'text', content: content.substring(lastIndex, match.index) })
-      }
-      
-      // Add the reference
-      const ref = match[1] // The actual reference (C/1 or Note 1)
-      parts.push({ 
-        type: 'reference', 
-        content: match[0], // The full matched text
-        ref: ref 
-      })
-      
+      if (match.index > lastIndex) parts.push({ type: 'text', content: content.substring(lastIndex, match.index) })
+      parts.push({ type: 'reference', content: match[0], ref: match[1] })
       lastIndex = match.index + match[0].length
     }
-    
-    // Add remaining text
-    if (lastIndex < content.length) {
-      parts.push({ type: 'text', content: content.substring(lastIndex) })
-    }
-    
-    // If no references found, return the content as-is
-    if (parts.length === 0) {
-      return <span>{content}</span>
-    }
-    
-    return parts.map((part, index) => {
-      if (part.type === 'reference') {
-        return (
-          <span
-            key={index}
-            className="reference-link"
-            onClick={() => handleReferenceClick(part.ref)}
-            title={`Click to view ${part.ref}`}
-          >
-            {part.content}
-          </span>
-        )
-      }
-      return <span key={index}>{part.content}</span>
-    })
+    if (lastIndex < content.length) parts.push({ type: 'text', content: content.substring(lastIndex) })
+    if (parts.length === 0) return <span>{content}</span>
+    return parts.map((part, index) => part.type === 'reference' ? (
+      <span key={index} className="reference-link" onClick={() => handleReferenceClick(part.ref)} title={`Click to open ${part.ref}`}>{part.content}</span>
+    ) : <span key={index}>{part.content}</span>)
   }
 
-  const getStatusColor = statusColor
+  const pageLabel = (c) => {
+    if (!c.startPage) return null
+    return c.endPage && c.endPage !== c.startPage ? `p. ${c.startPage}–${c.endPage}` : `p. ${c.startPage}`
+  }
+
+  const showNoting = maximized !== 'correspondence'
+  const showCorr = maximized !== 'noting'
 
   return (
     <div className="file-detail">
@@ -264,89 +176,65 @@ const FileDetail = () => {
         <div className="file-info-pane">
           {/* File Cover Section */}
           <div className="info-section">
-            <div 
-              className="section-header"
-              onClick={() => toggleSection('fileCover')}
-            >
+            <div className="section-header" onClick={() => toggleSection('fileCover')}>
               <h3>File Cover</h3>
               {expandedSections.fileCover ? <FiChevronUp /> : <FiChevronDown />}
             </div>
             {expandedSections.fileCover && (
               <div className="section-content">
-                <div className="info-item">
-                  <label>File Number</label>
-                  <div className="file-number-display">{file.fileNumber}</div>
-                </div>
-                <div className="info-item">
-                  <label>Subject</label>
-                  <div className="file-subject-display">{file.subject}</div>
-                </div>
-                <div className="info-item">
-                  <label>Section</label>
-                  <div>{file.section}</div>
-                </div>
+                <div className="info-item"><label>File Number</label><div className="file-number-display">{file.fileNumber}</div></div>
+                <div className="info-item"><label>Subject</label><div className="file-subject-display">{file.subject}</div></div>
+                <div className="info-item"><label>Section</label><div>{file.section}</div></div>
                 <div className="info-item">
                   <label>Status</label>
-                  <span 
-                    className="status-badge"
-                    style={{ background: getStatusColor(file.status) }}
-                  >
-                    {prettyStatus(file.status)}
-                  </span>
+                  <span className="status-badge" style={{ background: statusColor(file.status) }}>{prettyStatus(file.status)}</span>
                 </div>
                 {file.confidential && (
-                  <div className="info-item">
-                    <label>Confidential</label>
-                    <span className="confidential-badge">
-                      <FiLock /> CONFIDENTIAL
-                    </span>
-                  </div>
+                  <div className="info-item"><label>Confidential</label><span className="confidential-badge"><FiLock /> CONFIDENTIAL</span></div>
                 )}
-                <div className="info-item">
-                  <label>Created</label>
-                  <div>{new Date(file.createdDate).toLocaleDateString()}</div>
-                </div>
-                <div className="info-item">
-                  <label>Last Modified</label>
-                  <div>{new Date(file.lastModified).toLocaleDateString()}</div>
-                </div>
+                <div className="info-item"><label>Created</label><div>{new Date(file.createdDate).toLocaleDateString()}</div></div>
+                <div className="info-item"><label>Last Modified</label><div>{new Date(file.lastModified).toLocaleDateString()}</div></div>
               </div>
             )}
           </div>
 
+          {/* Draft notes (review #8) */}
+          {!isAdmin && draftNotes.length > 0 && (
+            <div className="info-section">
+              <div className="section-header"><h3>Drafts ({draftNotes.length})</h3></div>
+              <div className="section-content">
+                <div className="draft-list">
+                  {draftNotes.map((n) => (
+                    <div key={n.id} className="draft-item" onClick={() => scrollToNote(n.noteNumber)} title="Go to draft note">
+                      <span>Note {n.noteNumber}</span>
+                      <span style={{ color: '#975a16' }}>{n.author?.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Movement Timeline */}
           <div className="info-section">
-            <div 
-              className="section-header"
-              onClick={() => toggleSection('movement')}
-            >
+            <div className="section-header" onClick={() => toggleSection('movement')}>
               <h3>File Movement</h3>
               {expandedSections.movement ? <FiChevronUp /> : <FiChevronDown />}
             </div>
             {expandedSections.movement && (
               <div className="section-content">
                 <div className="movement-timeline">
-                  {file.movements.length > 0 ? (
-                    file.movements.map((mov, index) => (
-                      <div key={mov.id} className="movement-item">
-                        <div className="movement-dot"></div>
-                        <div className="movement-content">
-                          <div className="movement-action">{mov.action}</div>
-                          <div className="movement-route">
-                            {mov.from.name} → {mov.to.name}
-                          </div>
-                          <div className="movement-date">
-                            {new Date(mov.date).toLocaleString()}
-                          </div>
-                          {mov.remarks && (
-                            <div className="movement-remarks">{mov.remarks}</div>
-                          )}
-                        </div>
+                  {file.movements.length > 0 ? file.movements.map((mov) => (
+                    <div key={mov.id} className="movement-item">
+                      <div className="movement-dot"></div>
+                      <div className="movement-content">
+                        <div className="movement-action">{mov.action}</div>
+                        <div className="movement-route">{mov.from.name} → {mov.to.name}</div>
+                        <div className="movement-date">{new Date(mov.date).toLocaleString()}</div>
+                        {mov.remarks && <div className="movement-remarks">{mov.remarks}</div>}
                       </div>
-                    ))
-                  ) : (
-                    <div className="no-movements">No movements yet</div>
-                  )}
+                    </div>
+                  )) : <div className="no-movements">No movements yet</div>}
                 </div>
               </div>
             )}
@@ -359,9 +247,7 @@ const FileDetail = () => {
               <div className="section-content">
                 {file.steps.map((s) => (
                   <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: '1px solid #edf2f7' }}>
-                    <span style={{ minWidth: 22, height: 22, borderRadius: '50%', background: stepColor(s.status), color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {s.stepOrder}
-                    </span>
+                    <span style={{ minWidth: 22, height: 22, borderRadius: '50%', background: stepColor(s.status), color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{s.stepOrder}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>
                         {s.assigneeName} <span style={{ color: '#718096', fontWeight: 400 }}>({s.roleAtStep})</span>
@@ -374,11 +260,9 @@ const FileDetail = () => {
                         {s.actedAt ? ` · ${new Date(s.actedAt).toLocaleDateString()}` : ''}
                         {s.signatureName && s.status !== 'PENDING' ? ` · ✍ ${s.signatureName}` : ''}
                       </div>
-                      {s.remarks && s.status !== 'PENDING' && (
-                        <div style={{ fontSize: 12, color: '#718096', fontStyle: 'italic' }}>{s.remarks}</div>
-                      )}
+                      {s.remarks && s.status !== 'PENDING' && <div style={{ fontSize: 12, color: '#718096', fontStyle: 'italic' }}>{s.remarks}</div>}
                     </div>
-                    {s.status === 'PENDING' && file.currentAssignee !== s.assigneeId && (
+                    {!isAdmin && s.status === 'PENDING' && file.currentAssignee !== s.assigneeId && (
                       <button onClick={() => handleRemoveStep(s.id)} title="Remove reviewer" style={{ border: 'none', background: 'transparent', color: '#e53e3e', cursor: 'pointer', fontSize: 14 }}>✕</button>
                     )}
                   </div>
@@ -388,234 +272,202 @@ const FileDetail = () => {
           )}
 
           {/* Quick Actions */}
-          <div className="quick-actions">
-            <button 
-              className="action-btn primary"
-              onClick={() => setShowNoteModal(true)}
-            >
-              <FiPlus /> Add Note
-            </button>
-            <button 
-              className="action-btn"
-              onClick={() => setShowCorrModal(true)}
-            >
-              <FiPlus /> Add Correspondence
-            </button>
-            <button 
-              className="action-btn"
-              onClick={() => setShowForwardModal(true)}
-            >
-              <FiSend /> Forward File
-            </button>
-            <button 
-              className="action-btn"
-              onClick={() => setShowReviewModal(true)}
-            >
-              <FiFile /> Review & Approve
-            </button>
-            <button className="action-btn" onClick={() => openPrint(file.id, 'noting')}>
-              <FiPrinter /> Print Noting
-            </button>
-            <button className="action-btn" onClick={() => openPrint(file.id, 'correspondence')}>
-              <FiPrinter /> Print Correspondence
-            </button>
-            {file.status === 'UNDER_REVIEW' && (
-              <button className="action-btn" onClick={() => openAction('md')}>
-                <FiFile /> MD Offline Approval
-              </button>
-            )}
-            {file.status === 'APPROVED' && (
-              <button className="action-btn" onClick={() => openAction('route')}>
-                <FiSend /> Route to Department
-              </button>
-            )}
-            {file.status === 'ROUTED' && (
-              <button className="action-btn" onClick={() => openAction('return')}>
-                <FiSend /> Return to Maker
-              </button>
-            )}
-            {file.status !== 'CLOSED' && file.status !== 'DRAFT' && (
-              <>
-                <button className="action-btn" onClick={() => openAction('transfer')}>
-                  <FiSend /> Transfer Dept
-                </button>
-                <button className="action-btn" onClick={() => openAction('close')}>
-                  <FiLock /> Close File
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Right Pane - Main Content (Two Sections) */}
-        <div className="file-content-pane">
-          {/* Noting Side (Top Half) */}
-          <div className="noting-side">
-            <div className="side-header">
-              <h2>NOTING SIDE</h2>
+          {isAdmin ? (
+            <div className="info-section">
+              <div className="section-content" style={{ color: '#718096', fontSize: 13 }}>
+                <FiEyeOff style={{ verticalAlign: '-2px' }} /> Oversight view — Noting &amp; Correspondence are hidden for the admin role.
+              </div>
             </div>
-            <div className="notes-container">
-              {file.notes.map(note => (
-                <div key={note.id} id={`note-${note.id}`} className="note-card">
-                  <div className="note-header">
-                    <div className="note-number">Note {note.noteNumber}</div>
-                    <div className="note-date">
-                      {new Date(note.date).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="note-content">
-                    {renderNoteContent(note.content)}
-                  </div>
-                  <div className="note-footer">
-                    <div className="note-author-left">
-                      {note.noteNumber > 1 && (
-                        <div className="author-info">
-                          <FiUser className="author-icon" />
-                          <div>
-                            <div className="author-name">{note.author.name}</div>
-                            <div className="author-designation">{note.author.designation}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="note-author-right">
-                      {note.noteNumber === 1 && (
-                        <div className="author-info">
-                          <FiUser className="author-icon" />
-                          <div>
-                            <div className="author-name">{note.author.name}</div>
-                            <div className="author-designation">{note.author.designation}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {note.status && (
-                    <div className="note-status">
-                      Status: <span className="status-text">{prettyStatus(note.status)}</span>
-                      {note.isSuoMoto && <span style={{ marginLeft: 8, color: '#805ad5' }}>· Suo-moto</span>}
-                    </div>
-                  )}
-                  {note.approvals && note.approvals.length > 0 && (
-                    <div className="note-status" style={{ color: '#38b2ac' }}>
-                      Paragraph approvals: {note.approvals.map((a) => a.paragraph).join(', ')} (by {note.approvals[0].approvedBy})
-                    </div>
-                  )}
-                  {note.checkerComments && note.checkerComments.length > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 12 }}>
-                      {note.checkerComments.map((c, i) => (
-                        <div key={i} style={{ color: '#4a5568', marginTop: 2 }}>💬 <strong>{c.checkerName}:</strong> {c.comment}</div>
-                      ))}
-                    </div>
-                  )}
-                  {file.status !== 'CLOSED' && (
-                    <button className="corr-btn" style={{ marginTop: 6 }} onClick={() => handleComment(note.id)}>＋ Comment</button>
-                  )}
-                </div>
-              ))}
-              <button 
-                className="add-note-btn"
-                onClick={() => setShowNoteModal(true)}
-              >
-                <FiPlus /> Add New Note
-              </button>
-            </div>
-          </div>
-
-          {/* Correspondence Side (Bottom Half) */}
-          <div className="correspondence-side">
-            <div className="side-header">
-              <h2>CORRESPONDENCE SIDE</h2>
-            </div>
-            <div className="correspondence-container">
-              {file.correspondence && file.correspondence.length > 0 ? (
+          ) : (
+            <div className="quick-actions">
+              <button className="action-btn primary" onClick={() => setShowNoteModal(true)}><FiPlus /> Add Note</button>
+              <button className="action-btn" onClick={() => setShowCorrModal(true)}><FiPlus /> Add Correspondence</button>
+              <button className="action-btn" onClick={() => setShowForwardModal(true)}><FiSend /> Forward File</button>
+              <button className="action-btn" onClick={() => setShowAssignModal(true)}><FiUserCheck /> Assign Roles</button>
+              <button className="action-btn" onClick={() => setShowReviewModal(true)}><FiFile /> Review &amp; Approve</button>
+              <button className="action-btn" onClick={() => openPrint(file.id, 'noting')}><FiPrinter /> Print Noting</button>
+              <button className="action-btn" onClick={() => openPrint(file.id, 'correspondence')}><FiPrinter /> Print Correspondence</button>
+              {file.status === 'UNDER_REVIEW' && <button className="action-btn" onClick={() => openAction('md')}><FiFile /> MD Offline Approval</button>}
+              {file.status === 'APPROVED' && <button className="action-btn" onClick={() => openAction('route')}><FiSend /> Route to Department</button>}
+              {file.status === 'ROUTED' && <button className="action-btn" onClick={() => openAction('return')}><FiSend /> Return to Maker</button>}
+              {file.status !== 'CLOSED' && file.status !== 'DRAFT' && (
                 <>
-                  {file.correspondence.map(corr => (
-                    <div key={corr.id} id={`corr-${corr.id}`} className="corr-card" data-corr-number={corr.number}>
-                      <div className="corr-number">{corr.number}</div>
-                      <div className="corr-content">
-                        <div className="corr-type">{corr.type}</div>
-                        <div className="corr-title">{corr.title}</div>
-                        <div className="corr-meta">
-                          {corr.inwardDate && (
-                            <span>Inward: {new Date(corr.inwardDate).toLocaleDateString()}</span>
-                          )}
-                          {corr.inwardNumber && (
-                            <span>No: {corr.inwardNumber}</span>
-                          )}
-                        </div>
-                        {corr.storageKey && (
-                          <div className="corr-actions">
-                            <button className="corr-btn" onClick={() => viewCorrespondence(file.id, corr.id)}>
-                              <FiEye /> View
-                            </button>
-                            <button
-                              className="corr-btn"
-                              onClick={() => downloadCorrespondence(file.id, corr.id, `${corr.number.replace('/', '-')}.pdf`)}
-                            >
-                              <FiDownload /> Download
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  <button 
-                    className="add-corr-btn"
-                    onClick={() => setShowCorrModal(true)}
-                  >
-                    <FiPlus /> Add Correspondence
-                  </button>
+                  <button className="action-btn" onClick={() => openAction('transfer')}><FiSend /> Transfer Dept</button>
+                  <button className="action-btn" onClick={() => openAction('close')}><FiLock /> Close File</button>
                 </>
-              ) : (
-                <div className="empty-correspondence">
-                  <p>No correspondence added yet</p>
-                  <button 
-                    className="add-corr-btn"
-                    onClick={() => setShowCorrModal(true)}
-                  >
-                    <FiPlus /> Add First Correspondence
-                  </button>
-                </div>
               )}
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Right Pane - Main Content */}
+        {isAdmin ? (
+          <div className="file-content-pane" style={{ display: 'flex' }}>
+            <div className="noting-side" style={{ maxHeight: 'none' }}>
+              <div className="side-header"><h2>Restricted</h2></div>
+              <div className="notes-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                <div style={{ color: '#718096' }}>
+                  <FiEyeOff size={28} style={{ marginBottom: 12 }} />
+                  <p>The Noting and Correspondence modules are not available to the admin (oversight) role.</p>
+                  <p style={{ fontSize: 13 }}>Use <Link to="/reports">Reports &amp; Logs</Link> for file oversight.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="file-content-pane">
+            {/* Noting Side */}
+            {showNoting && (
+              <div className="noting-side">
+                <div className="side-header">
+                  <h2>NOTING SIDE</h2>
+                  <button className="maximize-btn" title={maximized === 'noting' ? 'Restore' : 'Maximise'} onClick={() => setMaximized(maximized === 'noting' ? null : 'noting')}>
+                    {maximized === 'noting' ? <FiMinimize2 /> : <FiMaximize2 />}
+                  </button>
+                </div>
+                <div className="notes-container">
+                  {file.notes.map((note) => (
+                    <div key={note.id} id={`note-${note.id}`} className="note-card">
+                      <div className="note-header">
+                        <div className="note-number">
+                          Note {note.noteNumber}
+                          {note.status === 'DRAFT' && <span className="draft-badge">Draft</span>}
+                        </div>
+                        <div className="note-date">{new Date(note.date).toLocaleString()}</div>
+                      </div>
+                      <div className="note-content">{renderNoteContent(note.content)}</div>
+                      <div className="note-footer">
+                        <div className="note-author-left">
+                          {note.noteNumber > 1 && (
+                            <div className="author-info">
+                              <FiUser className="author-icon" />
+                              <div>
+                                <div className="author-name">{note.author.name}</div>
+                                <div className="author-designation">{note.author.designation}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="note-author-right">
+                          {note.noteNumber === 1 && (
+                            <div className="author-info">
+                              <FiUser className="author-icon" />
+                              <div>
+                                <div className="author-name">{note.author.name}</div>
+                                <div className="author-designation">{note.author.designation}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {note.status && (
+                        <div className="note-status">
+                          Status: <span className="status-text">{prettyStatus(note.status)}</span>
+                          {note.isSuoMoto && <span style={{ marginLeft: 8, color: '#805ad5' }}>· Suo-moto</span>}
+                        </div>
+                      )}
+                      {note.approvals && note.approvals.length > 0 && (
+                        <div className="note-status">
+                          {note.approvals.map((a, i) => (
+                            <div key={i} style={{ color: a.status === 'PENDING' ? '#ed8936' : '#38b2ac' }}>
+                              Para {a.paragraph}: {a.status === 'PENDING' ? `assigned to ${a.assignedTo} (pending)` : `approved by ${a.approvedBy}`}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {note.checkerComments && note.checkerComments.length > 0 && (
+                        <div style={{ marginTop: 6, fontSize: 12 }}>
+                          {note.checkerComments.map((c, i) => (
+                            <div key={i} style={{ color: '#4a5568', marginTop: 2 }}>💬 <strong>{c.checkerName}:</strong> {c.comment}</div>
+                          ))}
+                        </div>
+                      )}
+                      {file.status !== 'CLOSED' && (
+                        <button className="corr-btn" style={{ marginTop: 6 }} onClick={() => handleComment(note.id)}>＋ Comment</button>
+                      )}
+                    </div>
+                  ))}
+                  <button className="add-note-btn" onClick={() => setShowNoteModal(true)}><FiPlus /> Add New Note</button>
+                </div>
+              </div>
+            )}
+
+            {/* Correspondence Side */}
+            {showCorr && (
+              <div className="correspondence-side">
+                <div className="side-header">
+                  <h2>CORRESPONDENCE SIDE</h2>
+                  <button className="maximize-btn" title={maximized === 'correspondence' ? 'Restore' : 'Maximise'} onClick={() => setMaximized(maximized === 'correspondence' ? null : 'correspondence')}>
+                    {maximized === 'correspondence' ? <FiMinimize2 /> : <FiMaximize2 />}
+                  </button>
+                </div>
+
+                {/* Inline document preview (review #3) */}
+                {preview && (
+                  <div className="corr-preview">
+                    <div className="corr-preview-head">
+                      <span>{preview.corr.number} — {preview.corr.title}</span>
+                      <button className="corr-btn" style={{ flex: 'none' }} onClick={clearPreview}>Close</button>
+                    </div>
+                    {preview.url && preview.renderable ? (
+                      <iframe src={preview.url} title={`Preview ${preview.corr.number}`} />
+                    ) : (
+                      <div className="corr-preview-msg">
+                        {preview.corr.storageKey
+                          ? <>This file type ({preview.corr.mime}) can’t preview inline. <button className="corr-btn" style={{ display: 'inline-flex', width: 'auto' }} onClick={() => viewCorrespondence(file.id, preview.corr.id)}>Open in new tab</button></>
+                          : 'This correspondence is an email reference (no attached document).'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="correspondence-container">
+                  {file.correspondence && file.correspondence.length > 0 ? (
+                    <>
+                      {file.correspondence.map((corr) => (
+                        <div key={corr.id} id={`corr-${corr.id}`} className="corr-card" data-corr-number={corr.number}>
+                          <div className="corr-number">{corr.number}</div>
+                          <div className="corr-content">
+                            <div className="corr-type">{corr.type}</div>
+                            <div className="corr-title">{corr.title}</div>
+                            <div className="corr-meta">
+                              {corr.inwardDate && <span>Inward: {new Date(corr.inwardDate).toLocaleDateString()}</span>}
+                              {corr.inwardNumber && <span>No: {corr.inwardNumber}</span>}
+                              {pageLabel(corr) && <span className="corr-pages">{pageLabel(corr)}{corr.pageCount ? ` (${corr.pageCount} pg)` : ''}</span>}
+                            </div>
+                            {corr.storageKey && (
+                              <div className="corr-actions">
+                                <button className="corr-btn" onClick={() => openCorrInline(corr)}><FiEye /> Open</button>
+                                <button className="corr-btn" onClick={() => downloadCorrespondence(file.id, corr.id, corr.originalName || `${corr.number.replace('/', '-')}`)}><FiDownload /> Download</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      <button className="add-corr-btn" onClick={() => setShowCorrModal(true)}><FiPlus /> Add Correspondence</button>
+                    </>
+                  ) : (
+                    <div className="empty-correspondence">
+                      <p>No correspondence added yet</p>
+                      <button className="add-corr-btn" onClick={() => setShowCorrModal(true)}><FiPlus /> Add First Correspondence</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modals */}
-      {showNoteModal && (
-        <AddNoteModal
-          file={file}
-          onClose={() => setShowNoteModal(false)}
-          onSaved={refresh}
-        />
-      )}
-      {showCorrModal && (
-        <AddCorrespondenceModal
-          file={file}
-          onClose={() => setShowCorrModal(false)}
-          onSaved={refresh}
-        />
-      )}
-      {showForwardModal && (
-        <ForwardFileModal
-          file={file}
-          onClose={() => setShowForwardModal(false)}
-          onSaved={refresh}
-        />
-      )}
-      {showReviewModal && (
-        <ReviewModal
-          file={file}
-          onClose={() => setShowReviewModal(false)}
-          onSaved={refresh}
-        />
-      )}
+      {showNoteModal && <AddNoteModal file={file} onClose={() => setShowNoteModal(false)} onSaved={refresh} />}
+      {showCorrModal && <AddCorrespondenceModal file={file} onClose={() => setShowCorrModal(false)} onSaved={refresh} />}
+      {showForwardModal && <ForwardFileModal file={file} onClose={() => setShowForwardModal(false)} onSaved={refresh} />}
+      {showReviewModal && <ReviewModal file={file} onClose={() => setShowReviewModal(false)} onSaved={refresh} />}
+      {showAssignModal && <AssignRolesModal file={file} onClose={() => setShowAssignModal(false)} onSaved={(f) => (f ? setFile(f) : refresh())} />}
       {activeAction === 'route' && (
         <ActionModal
-          title="Route to Actionable Department"
-          submitLabel="Route"
+          title="Route to Actionable Department" submitLabel="Route"
           onClose={() => setActiveAction(null)}
           fields={[
             { name: 'toUserId', label: 'Send to', type: 'select', required: true, options: userOptions.map((u) => ({ value: u.id, label: `${u.name} — ${u.section} (${u.role})` })) },

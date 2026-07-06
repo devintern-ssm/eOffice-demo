@@ -46,6 +46,7 @@ export interface ListFilesQuery {
   holder?: boolean;   // I currently hold it (inbox)
   pending?: boolean;  // a PENDING step is assigned to me (my approval queue)
   sent?: boolean;     // I created it and it has been forwarded at least once
+  draft?: boolean;    // my DRAFT files or files where I have a draft note (review #8)
 }
 
 export async function listFiles(q: ListFilesQuery, user: AuthUser) {
@@ -57,6 +58,12 @@ export async function listFiles(q: ListFilesQuery, user: AuthUser) {
   if (q.holder) and.push({ currentHolderId: user.id });
   if (q.pending) and.push({ steps: { some: { status: 'PENDING', assigneeId: user.id } } });
   if (q.sent) and.push({ createdById: user.id, movements: { some: { type: 'FORWARD' } } });
+  if (q.draft) and.push({
+    OR: [
+      { status: 'DRAFT', createdById: user.id },
+      { notes: { some: { status: 'DRAFT', authorId: user.id } } },
+    ],
+  });
   if (q.search) {
     and.push({
       OR: [
@@ -121,8 +128,10 @@ export async function getFileStats(user: AuthUser) {
   };
 }
 
-/** Full file detail (cover + notes + correspondence + movements + steps) for FileDetail. */
-export async function getFileDetail(id: string) {
+/** Full file detail (cover + notes + correspondence + movements + steps) for FileDetail.
+ *  Pass the viewing user so ADMIN (super admin) is denied the Noting/Correspondence
+ *  content per review #4 — they retain cover, movement history and the approval flow. */
+export async function getFileDetail(id: string, viewer?: AuthUser) {
   const f = await prisma.file.findUnique({
     where: { id },
     include: {
@@ -139,9 +148,36 @@ export async function getFileDetail(id: string) {
   });
   if (!f) throw ApiError.notFound('File not found');
 
+  const contentRestricted = viewer?.role === 'ADMIN';
+
+  // Continuous page numbering across correspondence PDFs (review #7): each attachment
+  // occupies a running page range; email references (no pages) are skipped.
+  let runningPage = 0;
+  const correspondence = f.correspondence.map((c) => {
+    const pages = c.pageCount ?? 0;
+    const startPage = pages > 0 ? runningPage + 1 : null;
+    runningPage += pages;
+    const endPage = pages > 0 ? runningPage : null;
+    return {
+      id: c.id,
+      number: c.number,
+      type: c.type,
+      title: c.title,
+      inwardDate: c.inwardDate,
+      inwardNumber: c.inwardNumber,
+      storageKey: c.storageKey,
+      mime: c.mime,
+      originalName: c.originalName,
+      pageCount: c.pageCount,
+      startPage,
+      endPage,
+    };
+  });
+
   return {
     ...toFileDTO(f),
-    notes: f.notes.map((n) => ({
+    contentRestricted,
+    notes: contentRestricted ? [] : f.notes.map((n) => ({
       id: n.id,
       noteNumber: n.noteNumber,
       content: n.content,
@@ -158,18 +194,16 @@ export async function getFileDetail(id: string) {
         correspondence: n.references.filter((r) => r.targetType === 'CORRESPONDENCE').map((r) => r.targetRef),
         notes: n.references.filter((r) => r.targetType === 'NOTE').map((r) => r.targetRef),
       },
-      approvals: n.paragraphApprovals.map((p) => ({ paragraph: p.paragraphMark, approvedBy: p.approvedByName, date: p.approvedAt })),
+      approvals: n.paragraphApprovals.map((p) => ({
+        paragraph: p.paragraphMark,
+        status: p.status,
+        assignedTo: p.assignedToName,
+        approvedBy: p.approvedByName,
+        date: p.approvedAt,
+      })),
       checkerComments: n.checkerComments.map((c) => ({ checkerName: c.authorName, comment: c.comment, action: c.action, date: c.createdAt })),
     })),
-    correspondence: f.correspondence.map((c) => ({
-      id: c.id,
-      number: c.number,
-      type: c.type,
-      title: c.title,
-      inwardDate: c.inwardDate,
-      inwardNumber: c.inwardNumber,
-      storageKey: c.storageKey,
-    })),
+    correspondence: contentRestricted ? [] : correspondence,
     movements: f.movements.map((m) => ({
       id: m.id,
       action: m.type,

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/http.js';
 import { STEP_ROLES } from '../../utils/domain.js';
-import { actOnFile, addReviewer, forwardFile, removeStep } from './workflow.service.js';
+import { actOnFile, addReviewer, assignMaker, forwardFile, removeStep } from './workflow.service.js';
 
 // mergeParams so req.params.id (the fileId) is available from the parent router.
 export const workflowRouter = Router({ mergeParams: true });
@@ -28,6 +28,12 @@ const actionSchema = z.object({
 workflowRouter.post('/forward', asyncHandler(async (req, res) => {
   const input = forwardSchema.parse(req.body);
   const file = await forwardFile(req.params.id, input, req.user!);
+  res.json({ file });
+}));
+
+workflowRouter.post('/assign-maker', asyncHandler(async (req, res) => {
+  const input = z.object({ makerId: z.string() }).parse(req.body);
+  const file = await assignMaker(req.params.id, input, req.user!);
   res.json({ file });
 }));
 

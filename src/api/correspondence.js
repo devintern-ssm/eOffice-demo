@@ -17,6 +17,12 @@ async function fetchBlob(fileId, corrId) {
   return apiBlob(`/files/${fileId}/correspondence/${corrId}/file`)
 }
 
+/** Load a correspondence attachment as an object URL for inline preview (review #3). */
+export async function loadCorrespondenceUrl(fileId, corrId) {
+  const blob = await fetchBlob(fileId, corrId)
+  return URL.createObjectURL(blob)
+}
+
 export async function viewCorrespondence(fileId, corrId) {
   const blob = await fetchBlob(fileId, corrId)
   window.open(URL.createObjectURL(blob), '_blank')

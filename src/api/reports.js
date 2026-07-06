@@ -10,12 +10,12 @@ export function getReport(params = {}) {
   return apiFetch(`/reports${qs(params)}`)
 }
 
-export async function exportReport(params = {}) {
-  const blob = await apiBlob(`/reports/export${qs(params)}`)
+export async function exportReport(params = {}, type = 'log') {
+  const blob = await apiBlob(`/reports/export${qs({ ...params, type })}`)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'eoffice-report.csv'
+  a.download = type === 'files' ? 'eoffice-files.csv' : 'eoffice-report.csv'
   document.body.appendChild(a)
   a.click()
   a.remove()

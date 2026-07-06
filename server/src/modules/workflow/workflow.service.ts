@@ -115,6 +115,37 @@ export async function addReviewer(fileId: string, input: { userId: string; role?
   return getFileDetail(fileId);
 }
 
+/**
+ * Assign / reassign the Maker (responsible officer) — review #1/#2. This just moves the
+ * single-holder lock to the chosen user while the file is still owner-controlled (before
+ * it enters the review chain); C9 ("responsible role assigned initially").
+ */
+export async function assignMaker(fileId: string, input: { makerId: string }, user: AuthUser) {
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
+  if (!file) throw ApiError.notFound('File not found');
+  if (!(file.createdById === user.id || file.currentHolderId === user.id || user.role === 'ADMIN')) {
+    throw ApiError.forbidden('Only the originator/holder can assign the Maker');
+  }
+  if (!['DRAFT', 'SUBMITTED', 'REVERTED'].includes(file.status)) {
+    throw ApiError.badRequest('The Maker can only be assigned before the file enters review');
+  }
+  const maker = await prisma.user.findUnique({ where: { id: input.makerId } });
+  if (!maker) throw ApiError.badRequest('Maker (user) not found');
+
+  await prisma.$transaction(async (tx) => {
+    await tx.file.update({ where: { id: fileId }, data: { currentHolderId: maker.id, lastUsedAt: new Date() } });
+    await tx.movement.create({
+      data: {
+        fileId, type: 'ASSIGN', actorId: user.id, actorName: user.name,
+        toUserId: maker.id, toName: maker.name,
+        remarks: `Assigned ${maker.name} as Maker (responsible officer)`,
+      },
+    });
+  });
+
+  return getFileDetail(fileId, user);
+}
+
 /** Remove a PENDING reviewer step that is not the current active one. */
 export async function removeStep(fileId: string, stepId: string, user: AuthUser) {
   const file = await prisma.file.findUnique({ where: { id: fileId } });
@@ -175,12 +206,24 @@ export async function actOnFile(
     });
 
     // Paragraph-level approval (SD §4.2): mark specific paragraphs of the note under review.
+    // If a paragraph was pre-assigned to an approver (review #2), resolve that assignment.
     if ((isApprove || isCheck) && input.paragraphs && input.paragraphs.length) {
       const target = await tx.note.findFirst({ where: { fileId }, orderBy: { noteNumber: 'desc' } });
       if (target) {
-        await tx.paragraphApproval.createMany({
-          data: input.paragraphs.map((p) => ({ noteId: target.id, paragraphMark: p, approvedById: user.id, approvedByName: input.signatureName || user.name })),
-        });
+        for (const rawMark of input.paragraphs) {
+          const mark = rawMark.trim().toUpperCase();
+          const pending = await tx.paragraphApproval.findFirst({ where: { noteId: target.id, paragraphMark: mark, status: 'PENDING' } });
+          if (pending) {
+            await tx.paragraphApproval.update({
+              where: { id: pending.id },
+              data: { status: 'APPROVED', approvedById: user.id, approvedByName: input.signatureName || user.name, approvedAt: new Date() },
+            });
+          } else {
+            await tx.paragraphApproval.create({
+              data: { noteId: target.id, paragraphMark: mark, status: 'APPROVED', approvedById: user.id, approvedByName: input.signatureName || user.name },
+            });
+          }
+        }
       }
     }
 

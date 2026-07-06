@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { asyncHandler, ApiError } from '../../utils/http.js';
-import { addNoteComment, uploadMdApproval } from './approvals.service.js';
+import { addNoteComment, assignParagraphApprover, uploadMdApproval } from './approvals.service.js';
 
 export const approvalsRouter = Router({ mergeParams: true });
 
@@ -18,5 +18,11 @@ approvalsRouter.post('/md-approval', upload.single('file'), asyncHandler(async (
 approvalsRouter.post('/notes/:noteId/comments', asyncHandler(async (req, res) => {
   const input = z.object({ comment: z.string().min(1) }).parse(req.body);
   const file = await addNoteComment(req.params.id, req.params.noteId, input, req.user!);
+  res.status(201).json({ file });
+}));
+
+approvalsRouter.post('/notes/:noteId/assign-approver', asyncHandler(async (req, res) => {
+  const input = z.object({ paragraphMark: z.string().min(1), approverId: z.string() }).parse(req.body);
+  const file = await assignParagraphApprover(req.params.id, req.params.noteId, input, req.user!);
   res.status(201).json({ file });
 }));

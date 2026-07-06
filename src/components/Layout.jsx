@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  FiHome, 
-  FiFile, 
-  FiInbox, 
-  FiCheckCircle, 
+import {
+  FiHome,
+  FiFile,
+  FiInbox,
+  FiCheckCircle,
   FiSend,
   FiSearch,
   FiBell,
@@ -12,7 +12,8 @@ import {
   FiMenu,
   FiX,
   FiBarChart2,
-  FiLogOut
+  FiLogOut,
+  FiEdit
 } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import './Layout.css'
@@ -22,9 +23,16 @@ const Layout = ({ children }) => {
   const location = useLocation()
   const { user, logout } = useAuth()
 
-  const menuItems = [
+  const isAdmin = user?.role === 'ADMIN'
+  // The admin is an oversight (super-admin) role — no Noting/Correspondence worker views.
+  const menuItems = isAdmin ? [
+    { path: '/', icon: FiHome, label: 'Dashboard' },
+    { path: '/all-files', icon: FiFile, label: 'All Files' },
+    { path: '/reports', icon: FiBarChart2, label: 'Reports & Logs' },
+  ] : [
     { path: '/', icon: FiHome, label: 'Dashboard' },
     { path: '/my-files', icon: FiFile, label: 'My Files' },
+    { path: '/drafts', icon: FiEdit, label: 'Drafts' },
     { path: '/inbox', icon: FiInbox, label: 'Inbox' },
     { path: '/pending-approvals', icon: FiCheckCircle, label: 'Pending Approvals' },
     { path: '/sent-files', icon: FiSend, label: 'Sent Files' },

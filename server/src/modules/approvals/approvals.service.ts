@@ -46,6 +46,48 @@ export async function uploadMdApproval(fileId: string, input: { remarks?: string
   return getFileDetail(fileId);
 }
 
+/**
+ * Assign a paragraph-wise approver to a note (review #2). Creates a PENDING paragraph
+ * approval targeted at a specific user; it becomes APPROVED when that person approves.
+ */
+export async function assignParagraphApprover(
+  fileId: string,
+  noteId: string,
+  input: { paragraphMark: string; approverId: string },
+  user: AuthUser,
+) {
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
+  if (!file) throw ApiError.notFound('File not found');
+  if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
+  // Only the current holder / originator may plan paragraph approvers.
+  if (!(file.currentHolderId === user.id || file.createdById === user.id)) {
+    throw ApiError.forbidden('Only the current holder can assign a paragraph approver');
+  }
+  const note = await prisma.note.findFirst({ where: { id: noteId, fileId } });
+  if (!note) throw ApiError.notFound('Note not found');
+  const approver = await prisma.user.findUnique({ where: { id: input.approverId } });
+  if (!approver) throw ApiError.badRequest('Approver (user) not found');
+  const mark = input.paragraphMark.trim().toUpperCase();
+  if (!mark) throw ApiError.badRequest('A paragraph mark (e.g. A) is required');
+
+  await prisma.$transaction(async (tx) => {
+    // Replace any prior PENDING assignment for the same paragraph.
+    await tx.paragraphApproval.deleteMany({ where: { noteId, paragraphMark: mark, status: 'PENDING' } });
+    await tx.paragraphApproval.create({
+      data: { noteId, paragraphMark: mark, status: 'PENDING', assignedToId: approver.id, assignedToName: approver.name },
+    });
+    await tx.movement.create({
+      data: {
+        fileId, type: 'ASSIGN', actorId: user.id, actorName: user.name,
+        toUserId: approver.id, toName: approver.name,
+        remarks: `Assigned ${approver.name} to approve paragraph ${mark} of Note ${note.noteNumber}`,
+      },
+    });
+  });
+
+  return getFileDetail(fileId, user);
+}
+
 /** Comment on a note after checker approval (S6b / C7) — append-only. */
 export async function addNoteComment(fileId: string, noteId: string, input: { comment: string }, user: AuthUser) {
   const file = await prisma.file.findUnique({ where: { id: fileId } });

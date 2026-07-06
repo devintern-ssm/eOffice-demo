@@ -127,3 +127,12 @@ Per your instruction ("do your suggested thing for no answers"), we proceeded as
 4. **"Inward" redefinition.** Client's D7 meaning ("routed to you / next step") differs from SOW S7 ("final approved"). Use the client's definition; watch for the term's double meaning (it also names incoming letters on the correspondence side).
 5. **Statuses named by client:** `DRAFT`, `REVERTED` (edit-gating, D3) and a step model with `stepOrder` (C6). Concrete enough to seed the workflow state machine.
 6. **Print is two PDFs** (Noting + Correspondence), side-by-side layout, with a confidential watermark and an approval-summary table — a structured document-generation component, not a browser print dialog.
+
+---
+
+## Section G — Round 2 update (2026-07-07)
+
+A fuller answer set (`eOffice_Requirements_Questionnaire (002).docx`) plus 8 review points from the client's hands-on test were incorporated and built. See **`10_round2_review_changes.md`** for the full record. Two supersessions to note here:
+
+- **§F.2 is superseded on File Tracking.** The client now says the separate File-Tracking server is **obsolete and will be removed**, and its file-movement functionality is **needed inside this app**. Our route/return/transfer + movement history own this now. (Org-wide *cross-org* reporting remains out of scope.)
+- **Multi-format attachments moved to Phase 1** (was Phase 2, item E.1) on the strength of review point #6 — pending the client's confirmation (C22 said "please discuss").

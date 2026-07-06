@@ -112,8 +112,13 @@ model ParagraphApproval {
   noteId        String
   note          Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
   paragraphMark String   // 'A', 'B', ...  (SD §4.2)
-  approvedById  String
-  approvedByName String
+  // Assignment (review #2): a paragraph can be routed to a specific approver ahead of time.
+  status         String  @default("APPROVED") // PENDING (assigned, not yet approved) | APPROVED
+  assignedToId   String?
+  assignedToName String?
+  // Recorded approval (may be null while status is PENDING).
+  approvedById   String?
+  approvedByName String?
   approvedAt    DateTime @default(now())
 }
 
@@ -130,7 +135,7 @@ model CheckerComment {
 }
 
 // ---------------------------------------------------------------------------
-// Correspondence side (C/1, C/2 …) — Phase 1: PDF only (C13)
+// Correspondence side (C/1, C/2 …) — multi-format attachments (review #6)
 // ---------------------------------------------------------------------------
 model Correspondence {
   id           String   @id @default(uuid())
@@ -143,6 +148,8 @@ model Correspondence {
   inwardNumber String?          // optional
   storageKey   String?          // path in the StorageProvider
   mime         String   @default("application/pdf")
+  originalName String?          // original upload filename (multi-format download)
+  pageCount    Int?             // pages in the attached PDF — drives continuous paging (review #7)
   uploadedById String
   uploadedByName String
   createdAt    DateTime @default(now())

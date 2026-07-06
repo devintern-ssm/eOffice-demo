@@ -17,12 +17,13 @@ function query(req: any) {
 }
 
 reportsRouter.get('/', asyncHandler(async (req, res) => {
-  res.json(await getReport(query(req)));
+  res.json(await getReport(query(req), req.user!));
 }));
 
 reportsRouter.get('/export', asyncHandler(async (req, res) => {
-  const csv = await getReportCsv(query(req));
+  const type = req.query.type === 'files' ? 'files' : 'log';
+  const csv = await getReportCsv(query(req), type, req.user!);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="eoffice-report.csv"');
+  res.setHeader('Content-Disposition', `attachment; filename="eoffice-${type === 'files' ? 'files' : 'report'}.csv"`);
   res.send(csv);
 }));
