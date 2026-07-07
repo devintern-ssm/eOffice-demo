@@ -6,7 +6,6 @@ import {
   FiInbox,
   FiCheckCircle,
   FiSend,
-  FiSearch,
   FiUser,
   FiMenu,
   FiX,
@@ -16,6 +15,7 @@ import {
 } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import NotificationBell from './NotificationBell'
+import GlobalSearch from './GlobalSearch'
 import './Layout.css'
 
 const Layout = ({ children }) => {
@@ -64,10 +64,7 @@ const Layout = ({ children }) => {
           </div>
         </div>
         <div className="header-center">
-          <div className="search-bar">
-            <FiSearch className="search-icon" />
-            <input type="text" placeholder="Search files, notes, correspondence..." />
-          </div>
+          <GlobalSearch />
         </div>
         <div className="header-right">
           <NotificationBell />
