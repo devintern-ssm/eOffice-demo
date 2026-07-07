@@ -11,7 +11,8 @@ import {
   FiX,
   FiBarChart2,
   FiLogOut,
-  FiEdit
+  FiEdit,
+  FiUsers
 } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import NotificationBell from './NotificationBell'
@@ -28,6 +29,7 @@ const Layout = ({ children }) => {
   const menuItems = isAdmin ? [
     { path: '/', icon: FiHome, label: 'Dashboard' },
     { path: '/all-files', icon: FiFile, label: 'All Files' },
+    { path: '/users', icon: FiUsers, label: 'Users' },
     { path: '/reports', icon: FiBarChart2, label: 'Reports & Logs' },
   ] : [
     { path: '/', icon: FiHome, label: 'Dashboard' },

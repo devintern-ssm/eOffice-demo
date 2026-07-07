@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, ApiError } from '../../utils/http.js';
-import { authenticate } from '../../middleware/auth.js';
+import { authenticate, requireRole } from '../../middleware/auth.js';
 import { ROLES } from '../../utils/domain.js';
 import { login, registerUser } from './auth.service.js';
 import { prisma } from '../../prisma.js';
@@ -23,9 +23,8 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-// NOTE (Phase 0): registration is open for development convenience.
-// Lock this behind ADMIN in the RBAC hardening slice (1.10).
-authRouter.post('/register', asyncHandler(async (req, res) => {
+// Account creation is an admin action (see also POST /users). Locked to the ADMIN role.
+authRouter.post('/register', authenticate, requireRole('ADMIN'), asyncHandler(async (req, res) => {
   const input = registerSchema.parse(req.body);
   const user = await registerUser(input);
   res.status(201).json({ user });

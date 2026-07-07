@@ -11,6 +11,7 @@ import FileDetail from './pages/FileDetail'
 import CreateFile from './pages/CreateFile'
 import Drafts from './pages/Drafts'
 import Reports from './pages/Reports'
+import Users from './pages/Users'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 
@@ -32,6 +33,7 @@ function Shell() {
           <Route path="/file/:fileId" element={<FileDetail />} />
           <Route path="/create-file" element={<CreateFile />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/users" element={<Users />} />
         </Routes>
       </Layout>
     </Router>
