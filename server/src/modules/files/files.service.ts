@@ -177,7 +177,8 @@ export async function getFileDetail(id: string, viewer?: AuthUser) {
   return {
     ...toFileDTO(f),
     contentRestricted,
-    notes: contentRestricted ? [] : f.notes.map((n) => ({
+    // Draft notes are private to their author until submitted (A2). Non-authors never see them.
+    notes: contentRestricted ? [] : f.notes.filter((n) => n.status !== 'DRAFT' || n.authorId === viewer?.id).map((n) => ({
       id: n.id,
       noteNumber: n.noteNumber,
       content: n.content,
@@ -271,7 +272,9 @@ export async function createFile(input: CreateFileInput, user: AuthUser) {
           authorId: user.id,
           authorName: user.name,
           authorRole: user.role,
-          status: 'DRAFT',
+          // The opening note is a real (submitted) note, not a hidden draft (bug #6).
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
         },
       });
     }

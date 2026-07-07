@@ -46,7 +46,7 @@ export async function uploadMdApproval(fileId: string, input: { remarks?: string
     await tx.movement.create({ data: { fileId, type: 'APPROVE', actorId: user.id, actorName: user.name, dept: user.section, remarks: `Offline MD approval uploaded (${current.assigneeName})` } });
   });
 
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /**
@@ -106,5 +106,5 @@ export async function addNoteComment(fileId: string, noteId: string, input: { co
   if (file.createdById !== user.id) {
     await prisma.notification.create(notifyData(file.createdById, 'COMMENT', `New comment on your file: ${file.subject}`, fileId));
   }
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }

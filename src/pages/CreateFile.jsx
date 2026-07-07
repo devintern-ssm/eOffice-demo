@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiFile, FiX, FiSave } from 'react-icons/fi'
+import { FiX, FiSave } from 'react-icons/fi'
 import { sections } from '../data/dummyData'
 import { createFile } from '../api/files'
 import './CreateFile.css'
@@ -152,35 +152,18 @@ const CreateFile = () => {
           </div>
 
           <div className="form-section">
-            <h2>Initial Content (Optional)</h2>
-            
+            <h2>Initial Note (Optional)</h2>
+
             <div className="form-group">
               <label>Initial Note</label>
               <textarea
                 name="initialNote"
                 value={formData.initialNote}
                 onChange={handleChange}
-                placeholder="You can add an initial note here, or add it later..."
+                placeholder="You can add an opening note here, or add it later..."
                 rows={8}
               />
-            </div>
-
-            <div className="form-group">
-              <label>Initial Correspondence</label>
-              <div className="file-upload-area">
-                <input
-                  type="file"
-                  id="initial-correspondence"
-                  style={{ display: 'none' }}
-                />
-                <label htmlFor="initial-correspondence" className="file-upload-label">
-                  <FiFile className="upload-icon" />
-                  <div>
-                    <div>Click to upload or drag and drop</div>
-                    <small>You can also add correspondence later</small>
-                  </div>
-                </label>
-              </div>
+              <small>Correspondence and reviewers are added on the file page after it opens.</small>
             </div>
           </div>
 

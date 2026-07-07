@@ -26,7 +26,7 @@ export async function routeToDept(fileId: string, input: { toUserId: string; rem
     prisma.movement.create({ data: { fileId, type: 'ROUTE', actorId: user.id, actorName: user.name, toUserId: to.id, toName: to.name, toSection: to.section, remarks: input.remarks || 'Routed for implementation' } }),
     ...(to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'ROUTE', `File routed to you for action: ${file.subject}`, fileId))] : []),
   ]);
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /** After implementation/comments, return the file to the originator (S19). ROUTED -> RETURNED. */
@@ -44,7 +44,7 @@ export async function returnToMaker(fileId: string, input: { remarks?: string },
     prisma.movement.create({ data: { fileId, type: 'RETURN', actorId: user.id, actorName: user.name, toUserId: file.createdById, toName: maker?.name, remarks: input.remarks || 'Implemented; returned to originator' } }),
     ...(file.createdById !== user.id ? [prisma.notification.create(notifyData(file.createdById, 'RETURN', `File returned to you: ${file.subject}`, fileId))] : []),
   ]);
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /** Permanent cross-department transfer (SD Additional Points / D11). Number is unchanged. */
@@ -60,7 +60,7 @@ export async function transferFile(fileId: string, input: { toSection: string; t
     prisma.movement.create({ data: { fileId, type: 'TRANSFER', actorId: user.id, actorName: user.name, fromSection: file.section, toSection: input.toSection, toUserId: to?.id, toName: to?.name, remarks: input.reason || `Transferred to ${input.toSection}` } }),
     ...(to && to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'ASSIGN', `File transferred to you (${input.toSection}): ${file.subject}`, fileId))] : []),
   ]);
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /** Close a file (SD §9 / H17): records close date + reason + optional successor link; read-only afterwards. */
@@ -81,5 +81,5 @@ export async function closeFile(fileId: string, input: { reason: string; success
     }),
     prisma.movement.create({ data: { fileId, type: 'CLOSE', actorId: user.id, actorName: user.name, remarks: input.reason || 'File closed' } }),
   ]);
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }

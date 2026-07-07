@@ -9,6 +9,7 @@ import { viewCorrespondence, downloadCorrespondence, loadCorrespondenceUrl } fro
 import { removeStep } from '../api/workflow'
 import { routeToDept, returnToMaker, transferFile, closeFile } from '../api/lifecycle'
 import { uploadMdApproval, addNoteComment } from '../api/approvals'
+import { submitNote } from '../api/notes'
 import { openPrint } from '../api/print'
 import { listUsers } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
@@ -73,6 +74,10 @@ const FileDetail = () => {
     try { setFile(await addNoteComment(fileId, noteId, comment)) } catch (e) { alert(e.message) }
   }
 
+  const handleSubmitDraft = async (noteId) => {
+    try { await submitNote(fileId, noteId); refresh() } catch (e) { alert(e.message) }
+  }
+
   const clearPreview = () => {
     if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null }
     setPreview(null)
@@ -87,8 +92,9 @@ const FileDetail = () => {
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
       previewUrlRef.current = url
       const mime = corr.mime || ''
-      const renderable = mime.includes('pdf') || mime.startsWith('image/')
-      setPreview({ corr, url, renderable })
+      const isImage = mime.startsWith('image/')
+      const renderable = mime.includes('pdf') || isImage
+      setPreview({ corr, url, renderable, isImage })
     } catch (e) { alert(e.message) }
   }
 
@@ -118,6 +124,8 @@ const FileDetail = () => {
   }
 
   const isAdmin = user?.role === 'ADMIN' || file.contentRestricted
+  const isHolder = file.currentAssignee === user?.id
+  const canAddNote = !isAdmin && isHolder && file.status !== 'CLOSED' // only the holder may add a note (#5)
   const draftNotes = (file.notes || []).filter((n) => n.status === 'DRAFT')
 
   const toggleSection = (section) => setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }))
@@ -205,9 +213,11 @@ const FileDetail = () => {
               <div className="section-content">
                 <div className="draft-list">
                   {draftNotes.map((n) => (
-                    <div key={n.id} className="draft-item" onClick={() => scrollToNote(n.noteNumber)} title="Go to draft note">
-                      <span>Note {n.noteNumber}</span>
-                      <span style={{ color: '#975a16' }}>{n.author?.name}</span>
+                    <div key={n.id} className="draft-item">
+                      <span style={{ cursor: 'pointer', flex: 1 }} onClick={() => scrollToNote(n.noteNumber)} title="Go to draft note">Note {n.noteNumber}</span>
+                      {isHolder && n.author?.id === user?.id && (
+                        <button className="corr-btn" style={{ width: 'auto', padding: '2px 8px' }} onClick={() => handleSubmitDraft(n.id)}>Submit</button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -280,7 +290,9 @@ const FileDetail = () => {
             </div>
           ) : (
             <div className="quick-actions">
-              <button className="action-btn primary" onClick={() => setShowNoteModal(true)}><FiPlus /> Add Note</button>
+              {canAddNote
+                ? <button className="action-btn primary" onClick={() => setShowNoteModal(true)}><FiPlus /> Add Note</button>
+                : <div style={{ fontSize: 12, color: '#a0aec0', padding: '4px 2px' }}>You can add a note only while you hold this file.</div>}
               <button className="action-btn" onClick={() => setShowCorrModal(true)}><FiPlus /> Add Correspondence</button>
               <button className="action-btn" onClick={() => setShowForwardModal(true)}><FiSend /> Forward File</button>
               <button className="action-btn" onClick={() => setShowAssignModal(true)}><FiUserCheck /> Assign Roles</button>
@@ -382,12 +394,15 @@ const FileDetail = () => {
                           ))}
                         </div>
                       )}
-                      {file.status !== 'CLOSED' && (
+                      {note.status === 'DRAFT' && note.author?.id === user?.id && isHolder && (
+                        <button className="corr-btn" style={{ marginTop: 6, marginRight: 6, width: 'auto', display: 'inline-flex', background: '#c6f6d5', color: '#22543d', borderColor: '#9ae6b4' }} onClick={() => handleSubmitDraft(note.id)}>✓ Submit note</button>
+                      )}
+                      {file.status !== 'CLOSED' && note.status !== 'DRAFT' && (
                         <button className="corr-btn" style={{ marginTop: 6 }} onClick={() => handleComment(note.id)}>＋ Comment</button>
                       )}
                     </div>
                   ))}
-                  <button className="add-note-btn" onClick={() => setShowNoteModal(true)}><FiPlus /> Add New Note</button>
+                  {canAddNote && <button className="add-note-btn" onClick={() => setShowNoteModal(true)}><FiPlus /> Add New Note</button>}
                 </div>
               </div>
             )}
@@ -409,7 +424,11 @@ const FileDetail = () => {
                       <span>{preview.corr.number} — {preview.corr.title}</span>
                       <button className="corr-btn" style={{ flex: 'none' }} onClick={clearPreview}>Close</button>
                     </div>
-                    {preview.url && preview.renderable ? (
+                    {preview.url && preview.isImage ? (
+                      <div style={{ padding: 8, textAlign: 'center', background: '#fff', maxHeight: 360, overflow: 'auto' }}>
+                        <img src={preview.url} alt={preview.corr.title} style={{ maxWidth: '100%', maxHeight: 340 }} />
+                      </div>
+                    ) : preview.url && preview.renderable ? (
                       <iframe src={preview.url} title={`Preview ${preview.corr.number}`} />
                     ) : (
                       <div className="corr-preview-msg">

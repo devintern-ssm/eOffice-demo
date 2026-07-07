@@ -1,82 +1,81 @@
 import React, { useEffect, useState } from 'react'
-import { FiX, FiSend } from 'react-icons/fi'
+import { FiX, FiSend, FiPlus, FiTrash2 } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import { addNote } from '../api/notes'
 import { listFiles } from '../api/files'
 import { listUsers, stepRoleForUser } from '../api/users'
 import { forwardFile, addReviewer, assignMaker } from '../api/workflow'
+import { assignParagraphApprover } from '../api/approvals'
 import './Modal.css'
+
+const STEP_ROLES = ['CHECKER', 'APPROVER', 'MD']
 
 const AddNoteModal = ({ file, onClose, onSaved }) => {
   const { user } = useAuth()
   const [noteContent, setNoteContent] = useState('')
   const [selectedCorr, setSelectedCorr] = useState([])
   const [selectedNotes, setSelectedNotes] = useState([])
-  const [isSuoMoto, setIsSuoMoto] = useState(false)
   const [searchApprovedFiles, setSearchApprovedFiles] = useState('')
   const [approvedFilesResults, setApprovedFilesResults] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  // Role assignment while creating a note (review #1)
+  // Role assignment while creating a note (reviews #1/#2/#3)
   const [users, setUsers] = useState([])
   const [makerId, setMakerId] = useState(user?.id || '')
-  const [checkerIds, setCheckerIds] = useState([])
+  const [reviewers, setReviewers] = useState({}) // userId -> role (CHECKER|APPROVER|MD)
+  const [paras, setParas] = useState([]) // [{ mark, approverId }]
 
-  // Assigning a chain only makes sense before/at review; not on approved/closed files.
   const canAssign = ['DRAFT', 'SUBMITTED', 'REVERTED', 'UNDER_REVIEW'].includes(file.status)
   const forwardable = ['DRAFT', 'SUBMITTED', 'REVERTED'].includes(file.status)
 
-  useEffect(() => {
-    if (!canAssign) return
-    listUsers().then(setUsers).catch(() => {})
-  }, [canAssign])
+  useEffect(() => { if (canAssign) listUsers().then(setUsers).catch(() => {}) }, [canAssign])
 
-  const toggleChecker = (id) => {
-    setCheckerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const candidates = users.filter((u) => u.id !== user?.id && u.role !== 'ADMIN')
+
+  const toggleReviewer = (u) => {
+    setReviewers((prev) => {
+      const next = { ...prev }
+      if (next[u.id]) delete next[u.id]
+      else next[u.id] = stepRoleForUser(u.role)
+      return next
+    })
   }
+  const setReviewerRole = (id, role) => setReviewers((prev) => ({ ...prev, [id]: role }))
 
-  const applyAssignments = async () => {
-    const recipients = checkerIds
-      .map((id) => users.find((u) => u.id === id))
-      .filter(Boolean)
-      .map((u) => ({ userId: u.id, role: stepRoleForUser(u.role) }))
+  const addParaRow = () => setParas((p) => [...p, { mark: '', approverId: '' }])
+  const setPara = (i, key, val) => setParas((p) => p.map((row, idx) => (idx === i ? { ...row, [key]: val } : row)))
+  const removePara = (i) => setParas((p) => p.filter((_, idx) => idx !== i))
 
-    if (recipients.length) {
-      if (forwardable) {
-        await forwardFile(file.id, { recipients, remarks: '' })
-      } else {
-        // eslint-disable-next-line no-restricted-syntax
-        for (const r of recipients) {
-          // eslint-disable-next-line no-await-in-loop
-          await addReviewer(file.id, r)
-        }
+  const applyAssignments = async (noteId) => {
+    // Paragraph-wise approvers first (creator is still authorised) (#3)
+    for (const row of paras) {
+      if (row.mark.trim() && row.approverId) {
+        // eslint-disable-next-line no-await-in-loop
+        await assignParagraphApprover(file.id, noteId, { paragraphMark: row.mark.trim(), approverId: row.approverId })
       }
+    }
+    // Reviewer chain (#2 — explicit Checker/Approver/MD roles)
+    const recipients = Object.entries(reviewers).map(([userId, role]) => ({ userId, role }))
+    if (recipients.length) {
+      if (forwardable) await forwardFile(file.id, { recipients, remarks: '' })
+      else for (const r of recipients) await addReviewer(file.id, r) // eslint-disable-line no-await-in-loop
     } else if (forwardable && makerId && makerId !== user?.id) {
-      // No checkers, but a different responsible officer was named → reassign the Maker.
       await assignMaker(file.id, makerId)
     }
   }
 
   const save = async (isDraft) => {
-    if (!noteContent.trim()) {
-      setError('Note content is required')
-      return
-    }
+    if (!noteContent.trim()) { setError('Note content is required'); return }
     setSubmitting(true)
     setError(null)
     try {
-      await addNote(file.id, {
+      const created = await addNote(file.id, {
         content: noteContent,
         isDraft,
-        isSuoMoto,
-        references: {
-          correspondence: selectedCorr,
-          notes: selectedNotes.map((n) => `Note ${n}`),
-        },
+        references: { correspondence: selectedCorr, notes: selectedNotes.map((n) => `Note ${n}`) },
       })
-      // Assignments apply on Submit only (a draft stays with its owner).
-      if (!isDraft && canAssign) await applyAssignments()
+      if (!isDraft && canAssign) await applyAssignments(created.id)
       onSaved && onSaved()
       onClose()
     } catch (err) {
@@ -85,39 +84,23 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
     }
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    save(false)
-  }
+  const handleSubmit = (e) => { e.preventDefault(); save(false) }
 
   const handleSearchApprovedFiles = async (searchTerm) => {
     setSearchApprovedFiles(searchTerm)
     if (searchTerm.length > 2) {
-      try {
-        const results = await listFiles({ status: 'APPROVED', search: searchTerm })
-        setApprovedFilesResults(results)
-      } catch {
-        setApprovedFilesResults([])
-      }
-    } else {
-      setApprovedFilesResults([])
-    }
+      try { setApprovedFilesResults(await listFiles({ status: 'APPROVED', search: searchTerm })) } catch { setApprovedFilesResults([]) }
+    } else setApprovedFilesResults([])
   }
 
   const handleCopyReference = (approvedFile) => {
     const reference = `Refer approved file ${approvedFile.fileNumber}: ${approvedFile.subject}`
     setNoteContent((prev) => (prev ? `${prev}\n${reference}` : reference))
-    setSearchApprovedFiles('')
-    setApprovedFilesResults([])
+    setSearchApprovedFiles(''); setApprovedFilesResults([])
   }
 
-  const toggleCorr = (corrNumber) => {
-    setSelectedCorr((prev) => (prev.includes(corrNumber) ? prev.filter((c) => c !== corrNumber) : [...prev, corrNumber]))
-  }
-
-  const toggleNote = (noteNumber) => {
-    setSelectedNotes((prev) => (prev.includes(noteNumber) ? prev.filter((n) => n !== noteNumber) : [...prev, noteNumber]))
-  }
+  const toggleCorr = (n) => setSelectedCorr((p) => (p.includes(n) ? p.filter((c) => c !== n) : [...p, n]))
+  const toggleNote = (n) => setSelectedNotes((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]))
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -130,24 +113,15 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
         <form onSubmit={handleSubmit} className="modal-body">
           <div className="form-group">
             <label>Note Content *</label>
-            <textarea
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              placeholder="Enter your note here. You can reference correspondence (e.g., Refer C/1) or previous notes (e.g., Refer Note 1)..."
-              rows={10}
-            />
+            <textarea value={noteContent} onChange={(e) => setNoteContent(e.target.value)}
+              placeholder="Enter your note here. You can reference correspondence (e.g., Refer C/1) or previous notes (e.g., Refer Note 1)..." rows={9} />
           </div>
 
           <div className="form-group">
             <label>Search Approved Files</label>
             <div className="search-approved-files">
-              <input
-                type="text"
-                value={searchApprovedFiles}
-                onChange={(e) => handleSearchApprovedFiles(e.target.value)}
-                placeholder="Search approved files to copy references..."
-                className="search-input"
-              />
+              <input type="text" value={searchApprovedFiles} onChange={(e) => handleSearchApprovedFiles(e.target.value)}
+                placeholder="Search approved files to copy references..." className="search-input" />
               {approvedFilesResults.length > 0 && (
                 <div className="approved-files-results">
                   {approvedFilesResults.map((af) => (
@@ -160,7 +134,6 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
                 </div>
               )}
             </div>
-            <small>Search and copy references from approved files</small>
           </div>
 
           <div className="form-row">
@@ -176,7 +149,6 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
                 {file.correspondence.length === 0 && <div className="empty-ref">No correspondence available</div>}
               </div>
             </div>
-
             <div className="form-group">
               <label>Reference Previous Notes</label>
               <div className="reference-list">
@@ -191,50 +163,62 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
             </div>
           </div>
 
-          {/* Assign Maker & Checker (review #1) */}
+          {/* Assign Maker & reviewers with explicit roles (reviews #1/#2) */}
           {canAssign && (
             <div className="form-group" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
-              <label style={{ fontWeight: 600 }}>Assign roles (optional)</label>
+              <label style={{ fontWeight: 600 }}>Assign reviewers (optional)</label>
               <small style={{ display: 'block', marginBottom: 8, color: '#718096' }}>
-                Applied when you <strong>Submit</strong> the note. A saved draft stays with you.
+                Applied when you <strong>Submit</strong>. Pick each reviewer and their role — Checker, Approver or MD.
               </small>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Maker (responsible officer)</label>
-                  <select value={makerId} onChange={(e) => setMakerId(e.target.value)} disabled={!forwardable}>
-                    <option value={user?.id || ''}>{user?.name} (you)</option>
-                    {users.filter((u) => u.id !== user?.id).map((u) => (
-                      <option key={u.id} value={u.id}>{u.name} — {u.section} ({u.role})</option>
-                    ))}
-                  </select>
-                  {!forwardable && <small>Maker is fixed once the file is under review.</small>}
-                </div>
-                <div className="form-group">
-                  <label>Checker(s){file.status === 'UNDER_REVIEW' ? ' to add' : ''}</label>
-                  <div className="reference-list" style={{ maxHeight: 140 }}>
-                    {users.filter((u) => u.id !== user?.id && u.role !== 'ADMIN').map((u) => (
-                      <label key={u.id} className="reference-item">
-                        <input type="checkbox" checked={checkerIds.includes(u.id)} onChange={() => toggleChecker(u.id)} />
-                        <span>{u.name} <em style={{ color: '#718096' }}>({stepRoleForUser(u.role)})</em></span>
-                      </label>
-                    ))}
-                    {users.length === 0 && <div className="empty-ref">Loading users…</div>}
-                  </div>
-                </div>
+              <div className="form-group">
+                <label>Maker (responsible officer)</label>
+                <select value={makerId} onChange={(e) => setMakerId(e.target.value)} disabled={!forwardable}>
+                  <option value={user?.id || ''}>{user?.name} (you)</option>
+                  {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} — {u.section} ({u.role})</option>)}
+                </select>
               </div>
-              {checkerIds.length > 0 && (
-                <small style={{ color: '#4c51bf' }}>
-                  On submit, the file is sent to {checkerIds.length} reviewer(s) in the order selected.
-                </small>
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Reviewer chain</label>
+              <div className="reference-list" style={{ maxHeight: 170 }}>
+                {candidates.map((u) => (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                    <label className="reference-item" style={{ flex: 1, margin: 0 }}>
+                      <input type="checkbox" checked={!!reviewers[u.id]} onChange={() => toggleReviewer(u)} />
+                      <span>{u.name} <em style={{ color: '#718096' }}>— {u.section}</em></span>
+                    </label>
+                    {reviewers[u.id] && (
+                      <select value={reviewers[u.id]} onChange={(e) => setReviewerRole(u.id, e.target.value)} style={{ padding: 4, borderRadius: 6, border: '1px solid #cbd5e0' }}>
+                        {STEP_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    )}
+                  </div>
+                ))}
+                {candidates.length === 0 && <div className="empty-ref">Loading users…</div>}
+              </div>
+              {Object.keys(reviewers).length > 0 && (
+                <small style={{ color: '#4c51bf' }}>On submit, the file is sent through {Object.keys(reviewers).length} reviewer(s) in order.</small>
               )}
+
+              {/* Paragraph-wise approvers (#3) */}
+              <div style={{ marginTop: 10 }}>
+                <label style={{ fontSize: 13, fontWeight: 600 }}>Para-wise approvers (optional)</label>
+                {paras.map((row, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
+                    <input type="text" value={row.mark} onChange={(e) => setPara(i, 'mark', e.target.value)} placeholder="Para (A)" maxLength={3} style={{ width: 70 }} />
+                    <select value={row.approverId} onChange={(e) => setPara(i, 'approverId', e.target.value)} style={{ flex: 1 }}>
+                      <option value="">Approver…</option>
+                      {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+                    </select>
+                    <button type="button" className="corr-btn" style={{ width: 'auto', padding: '6px 8px' }} onClick={() => removePara(i)}><FiTrash2 /></button>
+                  </div>
+                ))}
+                <button type="button" className="corr-btn" style={{ width: 'auto', marginTop: 6, display: 'inline-flex' }} onClick={addParaRow}><FiPlus /> Add paragraph approver</button>
+              </div>
             </div>
           )}
 
           <div className="form-group">
-            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={isSuoMoto} onChange={(e) => setIsSuoMoto(e.target.checked)} />
-              <span>Suo-moto note (internal note with no correspondence)</span>
-            </label>
+            <label>Author</label>
+            <div className="author-display">{user?.name} - {user?.designation}</div>
           </div>
 
           {error && <div className="form-error" style={{ color: '#e53e3e', marginBottom: 12 }}>{error}</div>}

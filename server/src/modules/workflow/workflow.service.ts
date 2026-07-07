@@ -82,7 +82,7 @@ export async function forwardFile(fileId: string, input: { recipients: Recipient
     }
   });
 
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /** Add a reviewer/recipient to the chain mid-flow (H13/C5). Appended as PENDING. */
@@ -117,7 +117,7 @@ export async function addReviewer(fileId: string, input: { userId: string; role?
     }
   });
 
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /**
@@ -168,7 +168,7 @@ export async function removeStep(fileId: string, stepId: string, user: AuthUser)
   if (firstPending && firstPending.id === step.id) throw ApiError.badRequest('Cannot remove the step currently in progress');
 
   await prisma.workflowStep.delete({ where: { id: stepId } });
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }
 
 /**
@@ -282,5 +282,5 @@ export async function actOnFile(
     }
   });
 
-  return getFileDetail(fileId);
+  return getFileDetail(fileId, user);
 }

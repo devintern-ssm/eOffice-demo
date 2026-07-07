@@ -9,7 +9,7 @@ import './Modal.css'
 const AssignRolesModal = ({ file, onClose, onSaved }) => {
   const [users, setUsers] = useState([])
   const [makerId, setMakerId] = useState(file.currentAssignee || '')
-  const [checkerIds, setCheckerIds] = useState([])
+  const [reviewers, setReviewers] = useState({}) // userId -> role
   const [paraNoteId, setParaNoteId] = useState(file.notes?.[0]?.id || '')
   const [paraMark, setParaMark] = useState('A')
   const [paraApproverId, setParaApproverId] = useState('')
@@ -43,17 +43,14 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
   }
 
   const doCheckers = () => {
-    const recipients = checkerIds
-      .map((id) => users.find((u) => u.id === id))
-      .filter(Boolean)
-      .map((u) => ({ userId: u.id, role: stepRoleForUser(u.role) }))
-    if (!recipients.length) { setError('Select at least one checker'); return }
+    const recipients = Object.entries(reviewers).map(([userId, role]) => ({ userId, role }))
+    if (!recipients.length) { setError('Select at least one reviewer'); return }
     run(async () => {
       if (forwardable) return forwardFile(file.id, { recipients, remarks: '' })
       let updated
       for (const r of recipients) updated = await addReviewer(file.id, r) // eslint-disable-line no-await-in-loop
       return updated
-    }, 'Checker(s) assigned.')
+    }, 'Reviewer(s) assigned.')
   }
 
   const doPara = () => {
@@ -63,7 +60,13 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
     run(() => assignParagraphApprover(file.id, paraNoteId, { paragraphMark: paraMark, approverId: paraApproverId }), 'Paragraph approver assigned.')
   }
 
-  const toggleChecker = (id) => setCheckerIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
+  const STEP_ROLES = ['CHECKER', 'APPROVER', 'MD']
+  const toggleReviewer = (u) => setReviewers((prev) => {
+    const next = { ...prev }
+    if (next[u.id]) delete next[u.id]; else next[u.id] = stepRoleForUser(u.role)
+    return next
+  })
+  const setReviewerRole = (id, role) => setReviewers((prev) => ({ ...prev, [id]: role }))
 
   const section = { border: '1px solid #e2e8f0', borderRadius: 8, padding: 14, marginBottom: 14 }
 
@@ -91,25 +94,32 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
             </div>
           </div>
 
-          {/* Checkers */}
+          {/* Reviewers — Checker / Approver / MD */}
           <div style={section}>
-            <label style={{ fontWeight: 600 }}>Checker(s){underReview ? ' to add' : ''}</label>
+            <label style={{ fontWeight: 600 }}>Reviewers (Checker / Approver / MD){underReview ? ' — add to chain' : ''}</label>
             <small style={{ display: 'block', color: '#718096', marginBottom: 8 }}>
-              {forwardable ? 'Forwards the file into a sequential review chain.'
+              {forwardable ? 'Forwards the file into a sequential review chain — pick each reviewer’s role.'
                 : underReview ? 'Appended to the end of the current review chain.'
                 : 'Not available — the file is not in a reviewable state.'}
             </small>
-            <div className="reference-list" style={{ maxHeight: 150 }}>
+            <div className="reference-list" style={{ maxHeight: 160 }}>
               {candidates.map((u) => (
-                <label key={u.id} className="reference-item">
-                  <input type="checkbox" checked={checkerIds.includes(u.id)} onChange={() => toggleChecker(u.id)} disabled={!forwardable && !underReview} />
-                  <span>{u.name} <em style={{ color: '#718096' }}>({stepRoleForUser(u.role)}) — {u.section}</em></span>
-                </label>
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                  <label className="reference-item" style={{ flex: 1, margin: 0 }}>
+                    <input type="checkbox" checked={!!reviewers[u.id]} onChange={() => toggleReviewer(u)} disabled={!forwardable && !underReview} />
+                    <span>{u.name} <em style={{ color: '#718096' }}>— {u.section}</em></span>
+                  </label>
+                  {reviewers[u.id] && (
+                    <select value={reviewers[u.id]} onChange={(e) => setReviewerRole(u.id, e.target.value)} style={{ padding: 4, borderRadius: 6, border: '1px solid #cbd5e0' }}>
+                      {STEP_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  )}
+                </div>
               ))}
               {candidates.length === 0 && <div className="empty-ref">Loading users…</div>}
             </div>
             <button type="button" className="btn-primary" style={{ marginTop: 8 }} disabled={busy || (!forwardable && !underReview)} onClick={doCheckers}>
-              Assign Checker(s)
+              Assign Reviewer(s)
             </button>
           </div>
 

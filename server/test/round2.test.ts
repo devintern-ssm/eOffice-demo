@@ -11,8 +11,8 @@ beforeAll(async () => {
 
 const detail = (id: string, t: string) => api().get(`/api/v1/files/${id}`).set(bearer(t));
 
-describe('#6 multi-format attachments', () => {
-  it('accepts a PDF and a .docx, rejects an unsupported type', async () => {
+describe('#6 multi-format attachments (all formats — A5)', () => {
+  it('accepts a PDF, a .docx and an image', async () => {
     const id = await createFile(maker);
     const pdf = await pdfBuffer(2);
 
@@ -26,10 +26,12 @@ describe('#6 multi-format attachments', () => {
       .attach('file', Buffer.from('doc'), { filename: 'a.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     expect(okDocx.status).toBe(201);
 
-    const bad = await api().post(`/api/v1/files/${id}/correspondence`).set(bearer(maker))
-      .field('type', 'Other').field('title', 'exe')
-      .attach('file', Buffer.from('MZ'), { filename: 'x.exe', contentType: 'application/x-msdownload' });
-    expect(bad.status).toBe(400);
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+    const okImg = await api().post(`/api/v1/files/${id}/correspondence`).set(bearer(maker))
+      .field('type', 'Photo').field('title', 'Image')
+      .attach('file', png, { filename: 'p.png', contentType: 'image/png' });
+    expect(okImg.status).toBe(201);
+    expect(okImg.body.correspondence.mime).toBe('image/png');
   });
 });
 

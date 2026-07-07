@@ -62,3 +62,27 @@ export async function addNote(fileId: string, input: AddNoteInput, user: AuthUse
     isDraft: note.status === 'DRAFT',
   };
 }
+
+/** Submit a saved draft note — DRAFT -> SUBMITTED (author + current holder only). */
+export async function submitNote(fileId: string, noteId: string, user: AuthUser) {
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
+  if (!file) throw ApiError.notFound('File not found');
+  if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
+  const note = await prisma.note.findFirst({ where: { id: noteId, fileId } });
+  if (!note) throw ApiError.notFound('Note not found');
+  if (note.status !== 'DRAFT') throw ApiError.badRequest('Only a draft note can be submitted');
+  if (note.authorId !== user.id) throw ApiError.forbidden('Only the author can submit their draft note');
+  if (file.currentHolderId && file.currentHolderId !== user.id) {
+    throw ApiError.forbidden('You can only submit your draft while you hold the file');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.note.update({ where: { id: noteId }, data: { status: 'SUBMITTED', submittedAt: new Date() } });
+    await tx.movement.create({
+      data: { fileId, type: 'NOTE_ADDED', actorId: user.id, actorName: user.name, remarks: `Note ${note.noteNumber} submitted` },
+    });
+    await tx.file.update({ where: { id: fileId }, data: { lastUsedAt: new Date() } });
+  });
+
+  return { id: note.id, noteNumber: note.noteNumber, status: 'SUBMITTED' };
+}

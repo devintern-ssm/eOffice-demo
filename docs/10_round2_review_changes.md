@@ -45,3 +45,23 @@ Plus **C8 (on-screen layout):** the Noting and Correspondence panes are now **si
 - **Correspondence** gained `originalName`, `pageCount`. **ParagraphApproval** gained `status`, `assignedToId/Name` and made `approvedById/Name` nullable (assignment before approval). Migration `20260706192612_multiformat_and_para_assignment`.
 - New endpoints: `POST /files/:id/assign-maker`, `POST /files/:id/notes/:noteId/assign-approver`; `GET /reports` now also returns a `files` register; `GET /reports/export?type=files`; `GET /files?draft=true`.
 - New dependency: **`pdf-lib`** (server) for PDF page counting.
+
+## E. Round-3 — client answers received (2026-07-07) + demo-bug fixes
+
+**Answers applied (see `Questions_for_client_2026-07.txt`):**
+- **A1 Suo-moto → REMOVED.** Notes are always workflow-bound; the "Suo-moto note" toggle is gone from the Add-Note screen.
+- **A2 Draft privacy → BUILT.** A draft note is now visible only to its author (hidden from other holders) until submitted; a **Submit** action promotes it to a normal note. Draft label kept in the sidebar/card.
+- **A5 Attachments → ALL formats in Phase 1.** The format allowlist was removed; any file uploads (PDFs still get automatic page counting; others count as one item). 25 MB cap.
+- **B6 Admin scope → confirmed.** Admin manages user accounts only (create/update/activate/reset/roles), no Noting/Correspondence access — already built (admin user management + content lockout).
+- **A6 Print page-range = BOTH note-number and physical-page** — *not yet built* (next).
+- **A4 Approval order = any-order mode wanted** — *not yet built* (next; needs a per-file mode + quorum design).
+
+**Demo bugs checked & fixed (client's teammate list):**
+1. Draft note had no way to submit → **Submit** action added (card + Drafts sidebar); endpoint `POST /files/:id/notes/:noteId/submit`.
+2. Only "Checker(s)" shown, no Approver/MD → Add-Note & Assign-Roles now let you pick **each reviewer's role** (Checker / Approver / MD) explicitly.
+3. Para-wise approvers only post-creation → **added to the Add-Note screen** (assigned right after the note is created).
+4. Image upload/display failed → backend already accepted images; **all formats now accepted (A5)** and images render inline via `<img>` (PDFs via iframe).
+5. "Only the current file holder can add a note" surprise → the **Add Note button is now hidden for non-holders** with a clear hint (the 403 was correct; the UI shouldn't have offered it).
+6. Initial note showed as a draft; dead "initial correspondence" widget → the **opening note is now SUBMITTED**, and the non-functional initial-correspondence upload was **removed** from Create File. (Per-note checker selection: the **para-wise approver** picker already targets a specific note; the reviewer chain remains file-level by design.)
+
+Tests: full suite **34 passing** (added draft-privacy, submit-draft, initial-note, non-holder-add-note; multi-format test updated for all-formats).
