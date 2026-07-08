@@ -9,3 +9,8 @@ export function addNote(fileId, body) {
 export function submitNote(fileId, noteId) {
   return apiFetch(`/files/${fileId}/notes/${noteId}/submit`, { method: 'POST' }).then((d) => d.note)
 }
+
+/** Edit a draft or reverted note's content. Returns the updated file detail. */
+export function updateNote(fileId, noteId, content) {
+  return apiFetch(`/files/${fileId}/notes/${noteId}`, { method: 'PATCH', body: JSON.stringify({ content }) }).then((d) => d.file)
+}

@@ -9,6 +9,7 @@
   display: flex;
   flex: 1;
   height: 100%;
+  width: 100%; /* fill the parent; without this the auto margins shrink-wrap it (breaks maximise) */
   gap: 24px;
   max-width: 1800px;
   margin: 0 auto;

@@ -1,6 +1,7 @@
 import { prisma } from '../../prisma.js';
 import { ApiError } from '../../utils/http.js';
 import type { AuthUser } from '../../middleware/auth.js';
+import { getFileDetail } from '../files/files.service.js';
 
 export interface AddNoteInput {
   content: string;
@@ -61,6 +62,33 @@ export async function addNote(fileId: string, input: AddNoteInput, user: AuthUse
     status: note.status,
     isDraft: note.status === 'DRAFT',
   };
+}
+
+/** Edit a note's content — only its author, only while it is a DRAFT or the file is REVERTED
+ *  (C16: "reverted drafts are changed by maker"). Requires holding the file. */
+export async function updateNote(fileId: string, noteId: string, input: { content: string }, user: AuthUser) {
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
+  if (!file) throw ApiError.notFound('File not found');
+  if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
+  const note = await prisma.note.findFirst({ where: { id: noteId, fileId } });
+  if (!note) throw ApiError.notFound('Note not found');
+  if (note.authorId !== user.id) throw ApiError.forbidden('Only the author can edit this note');
+  const editable = note.status === 'DRAFT' || file.status === 'REVERTED';
+  if (!editable) throw ApiError.badRequest('Only a draft note, or notes on a reverted file, can be edited');
+  if (file.currentHolderId && file.currentHolderId !== user.id) {
+    throw ApiError.forbidden('You can only edit while you hold the file');
+  }
+  if (!input.content.trim()) throw ApiError.badRequest('Note content is required');
+
+  await prisma.$transaction(async (tx) => {
+    await tx.note.update({ where: { id: noteId }, data: { content: input.content } });
+    await tx.movement.create({
+      data: { fileId, type: 'NOTE_ADDED', actorId: user.id, actorName: user.name, remarks: `Note ${note.noteNumber} edited` },
+    });
+    await tx.file.update({ where: { id: fileId }, data: { lastUsedAt: new Date() } });
+  });
+
+  return getFileDetail(fileId, user);
 }
 
 /** Submit a saved draft note — DRAFT -> SUBMITTED (author + current holder only). */

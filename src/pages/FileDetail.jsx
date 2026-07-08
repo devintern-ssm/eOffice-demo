@@ -9,7 +9,7 @@ import { viewCorrespondence, downloadCorrespondence, loadCorrespondenceUrl } fro
 import { removeStep } from '../api/workflow'
 import { routeToDept, returnToMaker, transferFile, closeFile } from '../api/lifecycle'
 import { uploadMdApproval, addNoteComment } from '../api/approvals'
-import { submitNote } from '../api/notes'
+import { submitNote, updateNote } from '../api/notes'
 import { openPrint } from '../api/print'
 import { listUsers } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
@@ -76,6 +76,13 @@ const FileDetail = () => {
 
   const handleSubmitDraft = async (noteId) => {
     try { await submitNote(fileId, noteId); refresh() } catch (e) { alert(e.message) }
+  }
+
+  const [editingNote, setEditingNote] = useState(null)
+  const [editText, setEditText] = useState('')
+  const startEdit = (note) => { setEditingNote(note.id); setEditText(note.content) }
+  const saveEdit = async (noteId) => {
+    try { setFile(await updateNote(fileId, noteId, editText)); setEditingNote(null) } catch (e) { alert(e.message) }
   }
 
   const clearPreview = () => {
@@ -239,7 +246,11 @@ const FileDetail = () => {
                       <div className="movement-dot"></div>
                       <div className="movement-content">
                         <div className="movement-action">{mov.action}</div>
-                        <div className="movement-route">{mov.from.name} → {mov.to.name}</div>
+                        <div className="movement-route">
+                          {mov.from.name}{mov.from.section ? ` · ${mov.from.section}` : ''}
+                          {' → '}
+                          {mov.to.name ? `${mov.to.name}${mov.to.section ? ` · ${mov.to.section}` : ''}` : (mov.to.section || '—')}
+                        </div>
                         <div className="movement-date">{new Date(mov.date).toLocaleString()}</div>
                         {mov.remarks && <div className="movement-remarks">{mov.remarks}</div>}
                       </div>
@@ -347,7 +358,17 @@ const FileDetail = () => {
                         </div>
                         <div className="note-date">{new Date(note.date).toLocaleString()}</div>
                       </div>
-                      <div className="note-content">{renderNoteContent(note.content)}</div>
+                      {editingNote === note.id ? (
+                        <div className="note-content">
+                          <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={6} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #cbd5e0' }} />
+                          <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+                            <button className="corr-btn" style={{ width: 'auto', background: '#c6f6d5', color: '#22543d', borderColor: '#9ae6b4' }} onClick={() => saveEdit(note.id)}>Save</button>
+                            <button className="corr-btn" style={{ width: 'auto' }} onClick={() => setEditingNote(null)}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="note-content">{renderNoteContent(note.content)}</div>
+                      )}
                       <div className="note-footer">
                         <div className="note-author-left">
                           {note.noteNumber > 1 && (
@@ -393,6 +414,9 @@ const FileDetail = () => {
                             <div key={i} style={{ color: '#4a5568', marginTop: 2 }}>💬 <strong>{c.checkerName}:</strong> {c.comment}</div>
                           ))}
                         </div>
+                      )}
+                      {note.author?.id === user?.id && isHolder && editingNote !== note.id && (note.status === 'DRAFT' || file.status === 'REVERTED') && (
+                        <button className="corr-btn" style={{ marginTop: 6, marginRight: 6, width: 'auto', display: 'inline-flex' }} onClick={() => startEdit(note)}>✎ Edit</button>
                       )}
                       {note.status === 'DRAFT' && note.author?.id === user?.id && isHolder && (
                         <button className="corr-btn" style={{ marginTop: 6, marginRight: 6, width: 'auto', display: 'inline-flex', background: '#c6f6d5', color: '#22543d', borderColor: '#9ae6b4' }} onClick={() => handleSubmitDraft(note.id)}>✓ Submit note</button>
