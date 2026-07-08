@@ -52,7 +52,13 @@ export async function transferFile(fileId: string, input: { toSection: string; t
   const file = await prisma.file.findUnique({ where: { id: fileId } });
   if (!file) throw ApiError.notFound('File not found');
   if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
-  assertHolderOrMaker(file, user);
+  // A cross-department transfer is a powerful move; restrict it to the CURRENT HOLDER (or admin),
+  // not the originator who may have long since handed the file off (QA BUG-2, spec §5:
+  // "only the current holder can act"). On a DRAFT the originator still holds the file, so
+  // pre-review transfers are unaffected.
+  if (!(file.currentHolderId === user.id || user.role === 'ADMIN')) {
+    throw ApiError.forbidden('Only the current holder can transfer this file');
+  }
   const to = input.toUserId ? await prisma.user.findUnique({ where: { id: input.toUserId } }) : null;
 
   await prisma.$transaction([
