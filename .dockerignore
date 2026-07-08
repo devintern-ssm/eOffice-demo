@@ -1,0 +1,16 @@
+# Web build context (repo root) — keep it lean and never ship secrets/back-end/db.
+node_modules
+dist
+server
+e2e
+docs
+scratchpad
+*.db
+*.db-journal
+.env
+.env.*
+.git
+.github
+uploads
+npm-debug.log
+*.md

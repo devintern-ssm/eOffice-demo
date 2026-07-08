@@ -12,9 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment / secrets — never commit real values. The *.example templates are tracked.
+.env
+.env.*
+!.env.production.example
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.claude/settings.local.json
 .idea
 .DS_Store
 *.suo

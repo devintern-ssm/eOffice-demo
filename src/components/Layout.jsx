@@ -1,28 +1,40 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  FiHome, 
-  FiFile, 
-  FiInbox, 
-  FiCheckCircle, 
+import {
+  FiHome,
+  FiFile,
+  FiInbox,
+  FiCheckCircle,
   FiSend,
-  FiSearch,
-  FiBell,
   FiUser,
   FiMenu,
   FiX,
-  FiBarChart2
+  FiBarChart2,
+  FiLogOut,
+  FiEdit,
+  FiUsers
 } from 'react-icons/fi'
-import { currentUser } from '../data/dummyData'
+import { useAuth } from '../auth/AuthContext'
+import NotificationBell from './NotificationBell'
+import GlobalSearch from './GlobalSearch'
 import './Layout.css'
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const location = useLocation()
+  const { user, logout } = useAuth()
 
-  const menuItems = [
+  const isAdmin = user?.role === 'ADMIN'
+  // The admin is an oversight (super-admin) role — no Noting/Correspondence worker views.
+  const menuItems = isAdmin ? [
+    { path: '/', icon: FiHome, label: 'Dashboard' },
+    { path: '/all-files', icon: FiFile, label: 'All Files' },
+    { path: '/users', icon: FiUsers, label: 'Users' },
+    { path: '/reports', icon: FiBarChart2, label: 'Reports & Logs' },
+  ] : [
     { path: '/', icon: FiHome, label: 'Dashboard' },
     { path: '/my-files', icon: FiFile, label: 'My Files' },
+    { path: '/drafts', icon: FiEdit, label: 'Drafts' },
     { path: '/inbox', icon: FiInbox, label: 'Inbox' },
     { path: '/pending-approvals', icon: FiCheckCircle, label: 'Pending Approvals' },
     { path: '/sent-files', icon: FiSend, label: 'Sent Files' },
@@ -54,23 +66,20 @@ const Layout = ({ children }) => {
           </div>
         </div>
         <div className="header-center">
-          <div className="search-bar">
-            <FiSearch className="search-icon" />
-            <input type="text" placeholder="Search files, notes, correspondence..." />
-          </div>
+          <GlobalSearch />
         </div>
         <div className="header-right">
-          <button className="icon-button">
-            <FiBell />
-            <span className="badge">3</span>
-          </button>
+          <NotificationBell />
           <div className="user-profile">
             <FiUser className="user-icon" />
             <div className="user-info">
-              <span className="user-name">{currentUser.name}</span>
-              <span className="user-designation">{currentUser.designation}</span>
+              <span className="user-name">{user?.name}</span>
+              <span className="user-designation">{user?.designation} · {user?.role}</span>
             </div>
           </div>
+          <button className="icon-button" title="Log out" onClick={logout}>
+            <FiLogOut />
+          </button>
         </div>
       </header>
 

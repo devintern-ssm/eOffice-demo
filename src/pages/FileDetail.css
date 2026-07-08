@@ -9,6 +9,7 @@
   display: flex;
   flex: 1;
   height: 100%;
+  width: 100%; /* fill the parent; without this the auto margins shrink-wrap it (breaks maximise) */
   gap: 24px;
   max-width: 1800px;
   margin: 0 auto;
@@ -226,11 +227,11 @@
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* Right Pane - Main Content */
+/* Right Pane - Main Content — side-by-side Noting | Correspondence (C8) */
 .file-content-pane {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 24px;
   overflow: hidden;
   min-height: 0; /* Important for flex children to respect overflow */
@@ -239,6 +240,7 @@
 /* Noting Side */
 .noting-side {
   flex: 1;
+  min-width: 0;
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -246,14 +248,90 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 300px;
-  max-height: 50vh;
 }
 
 .side-header {
   padding: 16px 24px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
+
+.maximize-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.maximize-btn:hover { background: rgba(255, 255, 255, 0.32); }
+
+/* Inline correspondence preview (review #3 — clicking C/n opens the doc here) */
+.corr-preview {
+  border-bottom: 2px solid #667eea;
+  background: #f7fafc;
+  display: flex;
+  flex-direction: column;
+}
+
+.corr-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.corr-preview iframe {
+  width: 100%;
+  height: 340px;
+  border: none;
+  background: #fff;
+}
+
+.corr-preview-msg { padding: 18px; font-size: 13px; color: #4a5568; }
+
+/* Draft notes sidebar (review #8) */
+.draft-list { display: flex; flex-direction: column; gap: 6px; }
+
+.draft-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed #d69e2e;
+  border-radius: 6px;
+  background: #fffaf0;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.draft-item:hover { background: #fefcbf; }
+
+.draft-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #975a16;
+  background: #faf089;
+  text-transform: uppercase;
+}
+
+.corr-pages { font-weight: 600; color: #4c51bf; }
 
 .side-header h2 {
   font-size: 16px;
@@ -414,6 +492,7 @@
 /* Correspondence Side */
 .correspondence-side {
   flex: 1;
+  min-width: 0;
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -421,8 +500,6 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 300px;
-  max-height: 50vh;
-  flex-shrink: 0; /* Prevent shrinking */
 }
 
 .correspondence-container {
@@ -434,7 +511,7 @@
   flex-wrap: wrap;
   gap: 16px;
   align-content: flex-start;
-  justify-content: flex-end;
+  justify-content: flex-start;
   scroll-behavior: smooth;
   min-height: 200px;
 }

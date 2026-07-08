@@ -1,0 +1,253 @@
+// e-Office N-C File System — data model
+// Baseline: docs/04_inferred_data_model.md + docs/08_requirements_decisions.md
+// NOTE: SQLite (dev) does not support Prisma enums, so status/role fields are String
+// with the allowed values documented inline; they are validated in the app layer (zod)
+// and become native Postgres enums when DATABASE_URL is switched to Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users & roles
+// ---------------------------------------------------------------------------
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  designation  String
+  section      String
+  role         String   @default("MAKER") // MAKER | CHECKER | APPROVER | MD | ADMIN
+  email        String   @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  createdFiles  File[]         @relation("FileCreatedBy")
+  heldFiles     File[]         @relation("FileHolder")
+  notes         Note[]
+  steps         WorkflowStep[]
+  notifications Notification[]
+}
+
+// ---------------------------------------------------------------------------
+// File (the N-C file) — one canonical UUID PK + generated DEPT/YEAR/SEQ display no.
+// ---------------------------------------------------------------------------
+model File {
+  id              String    @id @default(uuid())
+  displayNumber   String?   @unique // DEPT/YEAR/SEQ e.g. ACC/2026/001 — assigned on submit (D1)
+  customFileNumber String?          // optional user-entered label (D1)
+  subject         String            // purpose/grouping (SD §4.1)
+  section         String
+  status          String    @default("DRAFT") // DRAFT|SUBMITTED|UNDER_REVIEW|REVERTED|APPROVED|ROUTED|RETURNED|CLOSED
+  priority        String    @default("Normal") // Normal|High|Urgent
+  confidential    Boolean   @default(false)
+  startPeriod     DateTime?         // optional (SD §2.1)
+  endPeriod       DateTime?         // optional
+  createdAt       DateTime  @default(now())
+  lastUsedAt      DateTime  @default(now())
+
+  createdById     String
+  createdBy       User      @relation("FileCreatedBy", fields: [createdById], references: [id])
+  currentHolderId String?           // the lock / who currently holds it (H6)
+  currentHolder   User?     @relation("FileHolder", fields: [currentHolderId], references: [id])
+
+  // Closure + successor linkage (SD §9 / H17)
+  closeDate       DateTime?
+  closeReason     String?
+  successorFileId String?   @unique
+  successorFile   File?     @relation("FileSuccessor", fields: [successorFileId], references: [id])
+  predecessorFile File?     @relation("FileSuccessor")
+
+  notes           Note[]
+  correspondence  Correspondence[]
+  steps           WorkflowStep[]
+  movements       Movement[]
+  notifications   Notification[]
+
+  @@index([section])
+  @@index([status])
+  @@index([createdById])
+  @@index([currentHolderId])
+}
+
+// ---------------------------------------------------------------------------
+// Noting side
+// ---------------------------------------------------------------------------
+model Note {
+  id          String   @id @default(uuid())
+  fileId      String
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  noteNumber  Int              // per-file sequence (1,2,3…)
+  content     String
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  authorName  String           // denormalized for immutable audit
+  authorRole  String           // MAKER | CHECKER | APPROVER | MD
+  status      String   @default("DRAFT") // DRAFT | SUBMITTED | CHECKED | APPROVED
+  isSuoMoto   Boolean  @default(false)    // note without correspondence (SD §8)
+  createdAt   DateTime @default(now())
+  submittedAt DateTime?
+
+  references       NoteReference[]
+  paragraphApprovals ParagraphApproval[]
+  checkerComments  CheckerComment[]
+
+  @@unique([fileId, noteNumber])
+  @@index([fileId])
+}
+
+model NoteReference {
+  id         String @id @default(uuid())
+  noteId     String
+  note       Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  targetType String // CORRESPONDENCE | NOTE
+  targetRef  String // "C/1" or "Note 1"
+}
+
+model ParagraphApproval {
+  id            String   @id @default(uuid())
+  noteId        String
+  note          Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  paragraphMark String   // 'A', 'B', … or '—' for the whole note (SD §4.2 / observation #6)
+  role           String  @default("APPROVER") // CHECKER | APPROVER — who is assigned to this note
+  // Assignment (review #2 / #6): a note (or paragraph) can be routed to a specific person ahead of time.
+  status         String  @default("APPROVED") // PENDING (assigned, not yet approved) | APPROVED
+  assignedToId   String?
+  assignedToName String?
+  // Recorded approval (may be null while status is PENDING).
+  approvedById   String?
+  approvedByName String?
+  approvedAt    DateTime @default(now())
+}
+
+// Comments after a checker has approved — append-only (C7 / S6b)
+model CheckerComment {
+  id         String   @id @default(uuid())
+  noteId     String
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  authorId   String
+  authorName String
+  comment    String
+  action     String   @default("comment") // comment | checked | approved
+  createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Correspondence side (C/1, C/2 …) — multi-format attachments (review #6)
+// ---------------------------------------------------------------------------
+model Correspondence {
+  id           String   @id @default(uuid())
+  fileId       String
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  number       String   // "C/1"
+  type         String
+  title        String
+  inwardDate   DateTime?        // optional (SD §6)
+  inwardNumber String?          // optional
+  storageKey   String?          // path in the StorageProvider
+  mime         String   @default("application/pdf")
+  originalName String?          // original upload filename (multi-format download)
+  pageCount    Int?             // pages in the attached PDF — drives continuous paging (review #7)
+  uploadedById String
+  uploadedByName String
+  createdAt    DateTime @default(now())
+
+  @@unique([fileId, number])
+  @@index([fileId])
+}
+
+// ---------------------------------------------------------------------------
+// Workflow — the modifiable, sequential recipient list (C5 / C6 / S18)
+// ---------------------------------------------------------------------------
+model WorkflowStep {
+  id            String    @id @default(uuid())
+  fileId        String
+  file          File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  stepOrder     Int                 // strict sequence (C6)
+  assigneeId    String
+  assignee      User      @relation(fields: [assigneeId], references: [id])
+  assigneeName  String
+  roleAtStep    String    @default("CHECKER") // CHECKER | APPROVER | MD
+  status        String    @default("PENDING")  // PENDING | CHECKED | APPROVED | REVERTED | SKIPPED
+  remarks       String?
+  dept          String?             // H5: action records department
+  signatureName String?             // typed-name signature (A2)
+  actedAt       DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([fileId, stepOrder])
+  @@index([fileId])
+  @@index([assigneeId])
+}
+
+// ---------------------------------------------------------------------------
+// Movement / audit — append-only; every state change writes one (H5 / SD §5)
+// Users are denormalized (string id + name) so the log is immutable & self-contained.
+// ---------------------------------------------------------------------------
+model Movement {
+  id          String   @id @default(uuid())
+  fileId      String
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  type        String   // CREATE|SUBMIT|FORWARD|CHECK|APPROVE|REVERT|RETURN|ROUTE|TRANSFER|CLOSE|UPLOAD|NOTE_ADDED|SIGN
+  actorId     String
+  actorName   String
+  fromUserId  String?
+  fromName    String?
+  toUserId    String?
+  toName      String?
+  fromSection String?
+  toSection   String?
+  dept        String?
+  remarks     String?
+  createdAt   DateTime @default(now())
+
+  @@index([fileId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// In-app notifications — one row per recipient per event (assignment/revert/approval)
+// ---------------------------------------------------------------------------
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // FORWARD | CHECK | APPROVE | REVERT | ROUTE | RETURN | ASSIGN | COMMENT
+  message   String
+  fileId    String?
+  file      File?    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Departments / sections — admin-manageable (observation #1). `code` feeds the
+// DEPT/YEAR/SEQ file number; `name` is what appears on files and pickers.
+// ---------------------------------------------------------------------------
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   // short code used in file numbers (e.g. ADMIN, ACC)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Per (department, year) sequence allocator for DEPT/YEAR/SEQ numbers (D1/D2)
+// ---------------------------------------------------------------------------
+model NumberSequence {
+  id       String @id @default(uuid())
+  deptCode String
+  year     Int
+  lastSeq  Int    @default(0)
+
+  @@unique([deptCode, year])
+}

@@ -1,226 +1,142 @@
 import React, { useState } from 'react'
-import { FiX, FiCheck, FiXCircle, FiArrowLeft, FiSend } from 'react-icons/fi'
-import { currentUser } from '../data/dummyData'
+import { FiX, FiCheck, FiXCircle, FiArrowLeft, FiSend, FiHelpCircle } from 'react-icons/fi'
+import { actOnFile } from '../api/workflow'
 import './Modal.css'
 
-const ReviewModal = ({ file, onClose }) => {
+const ACTIONS = [
+  { key: 'check', label: 'Check', icon: FiCheck, cls: '' },
+  { key: 'approve', label: 'Approve', icon: FiCheck, cls: '' },
+  { key: 'revert', label: 'Revert', icon: FiArrowLeft, cls: 'reject' },
+  { key: 'reject', label: 'Reject', icon: FiXCircle, cls: 'reject' },
+  { key: 'clarify', label: 'Request Clarification', icon: FiHelpCircle, cls: '' },
+]
+
+const ReviewModal = ({ file, onClose, onSaved }) => {
   const [action, setAction] = useState('')
   const [remarks, setRemarks] = useState('')
-  const [forwardTo, setForwardTo] = useState('')
-  const [selectedParagraphs, setSelectedParagraphs] = useState([])
-  const [mdApprovalFile, setMdApprovalFile] = useState(null)
-  const [showMdUpload, setShowMdUpload] = useState(false)
-  const [digitalSignature, setDigitalSignature] = useState('')
+  const [dept, setDept] = useState('')
+  const [signatureName, setSignatureName] = useState('')
+  const [paragraphs, setParagraphs] = useState([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
-  const latestNote = file.notes[file.notes.length - 1]
+  const latestNote = file.notes && file.notes.length ? file.notes[file.notes.length - 1] : null
+  const currentStep = (file.steps || []).find((s) => s.status === 'PENDING')
+  const paraList = latestNote ? latestNote.content.split('\n\n').map((p) => p.trim()).filter(Boolean) : []
+  const showParagraphs = action === 'approve' || action === 'check'
+  const toggleParagraph = (mark) => setParagraphs((prev) => (prev.includes(mark) ? prev.filter((m) => m !== mark) : [...prev, mark]))
 
-  const handleSubmit = (e) => {
+  const requiresRemarks = ['revert', 'reject', 'clarify'].includes(action)
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!action) {
-      alert('Please select an action')
-      return
+    if (!action) { setError('Select an action'); return }
+    if (requiresRemarks && !remarks.trim()) { setError('Please add a remark explaining the revert/rejection'); return }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await actOnFile(file.id, { action, remarks, dept, signatureName, paragraphs: showParagraphs ? paragraphs : undefined })
+      onSaved && onSaved()
+      onClose()
+    } catch (err) {
+      setError(err.message)
+      setSubmitting(false)
     }
-    // In real app, this would process the review
-    alert(`File ${action.toLowerCase()}! (Demo mode)`)
-    onClose()
   }
-
-  const toggleParagraph = (index) => {
-    setSelectedParagraphs(prev => 
-      prev.includes(index)
-        ? prev.filter(p => p !== index)
-        : [...prev, index]
-    )
-  }
-
-  const paragraphs = latestNote.content.split('\n\n').filter(p => p.trim())
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Review & Approve File</h2>
-          <button className="modal-close" onClick={onClose}>
-            <FiX />
-          </button>
+          <h2>Review &amp; Approve File</h2>
+          <button className="modal-close" onClick={onClose}><FiX /></button>
         </div>
 
         <div className="modal-body">
           <div className="review-file-info">
+            <div className="info-item"><strong>File:</strong> {file.fileNumber}</div>
+            <div className="info-item"><strong>Subject:</strong> {file.subject}</div>
             <div className="info-item">
-              <strong>File:</strong> {file.fileNumber}
-            </div>
-            <div className="info-item">
-              <strong>Subject:</strong> {file.subject}
-            </div>
-            <div className="info-item">
-              <strong>Current Note:</strong> Note {latestNote.noteNumber}
+              <strong>Your step:</strong>{' '}
+              {currentStep ? `Step ${currentStep.stepOrder} — ${currentStep.assigneeName} (${currentStep.roleAtStep})` : 'No pending step'}
             </div>
           </div>
 
-          <div className="review-note-preview">
-            <h3>Note Content</h3>
-            <div className="note-preview">
-              {latestNote.content}
+          {latestNote && (
+            <div className="review-note-preview">
+              <h3>Latest note (Note {latestNote.noteNumber})</h3>
+              <div className="note-preview">{latestNote.content}</div>
             </div>
-          </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Select Action *</label>
               <div className="action-buttons">
-                <button
-                  type="button"
-                  className={`action-btn ${action === 'check' ? 'active' : ''}`}
-                  onClick={() => setAction('check')}
-                >
-                  <FiCheck /> Check
-                </button>
-                <button
-                  type="button"
-                  className={`action-btn ${action === 'approve' ? 'active' : ''}`}
-                  onClick={() => setAction('approve')}
-                >
-                  <FiCheck /> Approve
-                </button>
-                <button
-                  type="button"
-                  className={`action-btn reject ${action === 'revert' ? 'active' : ''}`}
-                  onClick={() => setAction('revert')}
-                >
-                  <FiArrowLeft /> Revert
-                </button>
-                <button
-                  type="button"
-                  className={`action-btn ${action === 'approve-conditional' ? 'active' : ''}`}
-                  onClick={() => setAction('approve-conditional')}
-                >
-                  <FiCheck /> Approve with Conditions
-                </button>
-                <button
-                  type="button"
-                  className={`action-btn ${action === 'reject' ? 'active' : ''}`}
-                  onClick={() => setAction('reject')}
-                >
-                  <FiXCircle /> Reject
-                </button>
-                <button
-                  type="button"
-                  className={`action-btn ${action === 'clarification' ? 'active' : ''}`}
-                  onClick={() => setAction('clarification')}
-                >
-                  Request Clarification
-                </button>
+                {ACTIONS.map((a) => {
+                  const Icon = a.icon
+                  return (
+                    <button
+                      type="button"
+                      key={a.key}
+                      className={`action-btn ${a.cls} ${action === a.key ? 'active' : ''}`}
+                      onClick={() => setAction(a.key)}
+                    >
+                      <Icon /> {a.label}
+                    </button>
+                  )
+                })}
               </div>
-              <small>Maker-Checker Workflow: Check (and forward) or Approve (and return) or Revert (to maker)</small>
+              <small>Check (forward to next) · Approve (advance / final approve) · Revert / Reject / Clarify (back to originator)</small>
             </div>
 
-            {action === 'approve-conditional' && (
+            {showParagraphs && paraList.length > 1 && (
               <div className="form-group">
-                <label>Select Paragraphs for Approval</label>
+                <label>Approve specific paragraphs (optional)</label>
                 <div className="paragraphs-list">
-                  {paragraphs.map((para, index) => (
-                    <label key={index} className="paragraph-item">
-                      <input
-                        type="checkbox"
-                        checked={selectedParagraphs.includes(index)}
-                        onChange={() => toggleParagraph(index)}
-                      />
-                      <div className="paragraph-text">
-                        Paragraph {String.fromCharCode(65 + index)}: {para.substring(0, 100)}...
-                      </div>
-                    </label>
-                  ))}
+                  {paraList.map((para, index) => {
+                    const mark = String.fromCharCode(65 + index)
+                    return (
+                      <label key={index} className="paragraph-item" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0' }}>
+                        <input type="checkbox" checked={paragraphs.includes(mark)} onChange={() => toggleParagraph(mark)} />
+                        <span><strong>{mark}:</strong> {para.slice(0, 90)}{para.length > 90 ? '…' : ''}</span>
+                      </label>
+                    )
+                  })}
                 </div>
+                <small>Leave unchecked to approve the whole note.</small>
               </div>
             )}
 
             <div className="form-group">
-              <label>Remarks/Comments *</label>
+              <label>Remarks / Comments {requiresRemarks ? '*' : ''}</label>
               <textarea
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Enter your remarks, observations, or instructions. Multiple checkers can add comments sequentially..."
-                rows={6}
-                required
+                placeholder="Your remarks are recorded on the noting side and stamped with your name, department and time."
+                rows={5}
               />
-              <small>Each checker can add their comments. Comments are added sequentially.</small>
             </div>
 
-            <div className="form-group">
-              <label>MD Approval (Offline)</label>
-              <div className="md-approval-section">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowMdUpload(!showMdUpload)}
-                >
-                  {showMdUpload ? 'Hide' : 'Upload Offline MD Approval'}
-                </button>
-                {showMdUpload && (
-                  <div className="md-upload-area">
-                    <input
-                      type="file"
-                      id="md-approval-upload"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setMdApprovalFile(e.target.files[0])
-                        }
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                    <label htmlFor="md-approval-upload" className="file-upload-label">
-                      <FiUpload />
-                      {mdApprovalFile ? (
-                        <span>{mdApprovalFile.name}</span>
-                      ) : (
-                        <span>Upload scanned MD approval</span>
-                      )}
-                    </label>
-                    <small>Any maker or checker can upload physical scanned approval</small>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Digital Signature</label>
-              <input
-                type="text"
-                value={digitalSignature}
-                onChange={(e) => setDigitalSignature(e.target.value)}
-                placeholder="Enter digital signature or select certificate..."
-              />
-              <small>Digital signature (if required/approved by)</small>
-            </div>
-
-            {action === 'approve' && (
+            <div className="form-row">
               <div className="form-group">
-                <label>Forward To (Optional)</label>
-                <input
-                  type="text"
-                  value={forwardTo}
-                  onChange={(e) => setForwardTo(e.target.value)}
-                  placeholder="Select next recipient..."
-                />
-                <small>Leave empty if this is final approval</small>
+                <label>Department</label>
+                <input type="text" value={dept} onChange={(e) => setDept(e.target.value)} placeholder="Defaults to your section" />
+                <small>Recorded with the action (date &amp; time stamped automatically).</small>
               </div>
-            )}
-
-            <div className="form-group">
-              <label>Reviewer</label>
-              <div className="author-display">
-                {currentUser.name} - {currentUser.designation}
+              <div className="form-group">
+                <label>Signature (typed)</label>
+                <input type="text" value={signatureName} onChange={(e) => setSignatureName(e.target.value)} placeholder="Defaults to your name" />
+                <small>Typed-name signature (Phase 1). Left blank = your account name.</small>
               </div>
             </div>
+
+            {error && <div className="form-error" style={{ color: '#e53e3e', marginBottom: 12 }}>{error}</div>}
 
             <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                <FiSend /> Submit Review
+              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                <FiSend /> {submitting ? 'Submitting…' : 'Submit Review'}
               </button>
             </div>
           </form>

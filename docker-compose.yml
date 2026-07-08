@@ -1,0 +1,92 @@
+# eOffice — production stack for a single server with a domain.
+#   web    : Caddy (auto-HTTPS) serving the built frontend + reverse-proxying /api → api
+#   api    : Express + Prisma/SQLite backend; DB + document keys persisted on volumes
+#   minio  : S3-compatible object store for uploaded documents
+#   createbuckets : one-shot init that creates the bucket, then exits
+#
+# Copy .env.production.example → .env and fill in the values before `docker compose up -d`.
+
+services:
+  api:
+    build:
+      context: ./server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # SQLite lives on the eoffice_db volume (see below).
+      DATABASE_URL: "file:/data/prod.db"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://localhost}
+      # Documents → MinIO (S3).
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-eoffice}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      S3_FORCE_PATH_STYLE: "true"
+      # Set true ONCE for a throwaway pilot to seed demo users; then set back to false.
+      SEED_ON_START: ${SEED_ON_START:-false}
+    volumes:
+      - eoffice_db:/data
+    depends_on:
+      createbuckets:
+        condition: service_completed_successfully
+    expose:
+      - "4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    environment:
+      # Bare domain → Caddy auto-provisions TLS. Use ":80" for plain HTTP.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - minio_data:/data
+    ports:
+      # Admin console bound to localhost only (reach via SSH tunnel). S3 API stays internal.
+      - "127.0.0.1:9001:9001"
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\"; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      mc mb -p local/$$S3_BUCKET || true;
+      mc anonymous set none local/$$S3_BUCKET || true;
+      echo 'bucket ready';
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-eoffice}
+
+volumes:
+  eoffice_db:
+  minio_data:
+  caddy_data:
+  caddy_config:

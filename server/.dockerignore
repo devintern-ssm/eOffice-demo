@@ -1,0 +1,11 @@
+node_modules
+dist
+uploads
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.backup.db
+prisma/test.db
+.env
+.env.*
+npm-debug.log

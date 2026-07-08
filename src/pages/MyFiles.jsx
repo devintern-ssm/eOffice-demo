@@ -1,26 +1,39 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiFile, FiSearch, FiFilter, FiEye } from 'react-icons/fi'
-import { files, currentUser } from '../data/dummyData'
+import { FiFile, FiSearch, FiFilter, FiEye, FiLoader } from 'react-icons/fi'
+import { listFiles } from '../api/files'
+import { FILE_STATUSES, prettyStatus, statusColor } from '../utils/status'
 import './FileList.css'
 
 const MyFiles = () => {
+  const [files, setFiles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('lastUsed') // 'lastUsed', 'date', 'number'
 
-  const myFiles = files.filter(f => f.createdBy === currentUser.id)
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    listFiles({ mine: true })
+      .then((data) => { if (active) { setFiles(data); setError(null) } })
+      .catch((e) => { if (active) setError(e.message) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
-  const filteredFiles = myFiles.filter(file => {
-    const matchesSearch = 
-      file.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      file.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (file.unNumber && file.unNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredFiles = files.filter((file) => {
+    const term = searchTerm.toLowerCase()
+    const matchesSearch =
+      file.fileNumber.toLowerCase().includes(term) ||
+      file.subject.toLowerCase().includes(term) ||
+      (file.unNumber && file.unNumber.toLowerCase().includes(term))
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
-  // Sort files
   const sortedFiles = [...filteredFiles].sort((a, b) => {
     if (sortBy === 'lastUsed') {
       return new Date(b.lastUsedDate || b.lastModified) - new Date(a.lastUsedDate || a.lastModified)
@@ -31,16 +44,6 @@ const MyFiles = () => {
     }
     return 0
   })
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Open': return '#48bb78'
-      case 'Under Review': return '#ed8936'
-      case 'Approved': return '#38b2ac'
-      case 'Closed': return '#718096'
-      default: return '#a0aec0'
-    }
-  }
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -71,25 +74,16 @@ const MyFiles = () => {
         </div>
         <div className="filter-group">
           <FiFilter className="filter-icon" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="filter-select"
-          >
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="filter-select">
             <option value="all">All Status</option>
-            <option value="Open">Open</option>
-            <option value="Under Review">Under Review</option>
-            <option value="Approved">Approved</option>
-            <option value="Closed">Closed</option>
+            {FILE_STATUSES.map((s) => (
+              <option key={s} value={s}>{prettyStatus(s)}</option>
+            ))}
           </select>
         </div>
         <div className="filter-group">
           <label>Sort by:</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="filter-select"
-          >
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
             <option value="lastUsed">Last Used Date</option>
             <option value="date">Created Date</option>
             <option value="number">File Number</option>
@@ -98,56 +92,41 @@ const MyFiles = () => {
       </div>
 
       <div className="file-list-container">
-        {sortedFiles.length > 0 ? (
+        {loading ? (
+          <div className="empty-state"><FiLoader size={48} /><p>Loading files…</p></div>
+        ) : error ? (
+          <div className="empty-state"><FiFile size={48} /><p>Couldn’t load files: {error}</p></div>
+        ) : sortedFiles.length > 0 ? (
           <div className="file-list">
-            {sortedFiles.map(file => (
+            {sortedFiles.map((file) => (
               <div key={file.id} className="file-card">
                 <div className="file-card-header">
                   <div>
                     <div className="file-number">{file.fileNumber}</div>
-                    {file.unNumber && (
-                      <div className="un-number">UN: {file.unNumber}</div>
-                    )}
+                    {file.unNumber && <div className="un-number">UN: {file.unNumber}</div>}
                   </div>
                   <div className="file-badges">
                     {file.priority === 'Urgent' && (
-                      <span className="badge priority" style={{ background: getPriorityColor(file.priority) }}>
-                        {file.priority}
-                      </span>
+                      <span className="badge priority" style={{ background: getPriorityColor(file.priority) }}>{file.priority}</span>
                     )}
-                    {file.confidential && (
-                      <span className="badge confidential">CONFIDENTIAL</span>
-                    )}
-                    <span className="badge status" style={{ background: getStatusColor(file.status) }}>
-                      {file.status}
-                    </span>
+                    {file.confidential && <span className="badge confidential">CONFIDENTIAL</span>}
+                    <span className="badge status" style={{ background: statusColor(file.status) }}>{prettyStatus(file.status)}</span>
                   </div>
                 </div>
                 <div className="file-subject">{file.subject}</div>
                 <div className="file-meta">
-                  <span className="meta-item">
-                    <strong>Section:</strong> {file.section}
-                  </span>
-                  <span className="meta-item">
-                    <strong>Created:</strong> {new Date(file.createdDate).toLocaleDateString()}
-                  </span>
-                  <span className="meta-item">
-                    <strong>Last Modified:</strong> {new Date(file.lastModified).toLocaleDateString()}
-                  </span>
+                  <span className="meta-item"><strong>Section:</strong> {file.section}</span>
+                  <span className="meta-item"><strong>Created:</strong> {new Date(file.createdDate).toLocaleDateString()}</span>
+                  <span className="meta-item"><strong>Last Modified:</strong> {new Date(file.lastModified).toLocaleDateString()}</span>
                 </div>
                 <div className="file-actions">
-                  <Link to={`/file/${file.id}`} className="btn-view">
-                    <FiEye /> View File
-                  </Link>
+                  <Link to={`/file/${file.id}`} className="btn-view"><FiEye /> View File</Link>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="empty-state">
-            <FiFile size={48} />
-            <p>No files found</p>
-          </div>
+          <div className="empty-state"><FiFile size={48} /><p>No files found</p></div>
         )}
       </div>
     </div>

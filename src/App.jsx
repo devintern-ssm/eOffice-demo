@@ -9,9 +9,16 @@ import SentFiles from './pages/SentFiles'
 import AllFiles from './pages/AllFiles'
 import FileDetail from './pages/FileDetail'
 import CreateFile from './pages/CreateFile'
+import Drafts from './pages/Drafts'
 import Reports from './pages/Reports'
+import Users from './pages/Users'
+import Login from './pages/Login'
+import { AuthProvider, useAuth } from './auth/AuthContext'
 
-function App() {
+function Shell() {
+  const { user, loading } = useAuth()
+  if (loading) return <div style={{ padding: 40, color: '#718096' }}>Loading…</div>
+  if (!user) return <Login />
   return (
     <Router>
       <Layout>
@@ -22,12 +29,22 @@ function App() {
           <Route path="/pending-approvals" element={<PendingApprovals />} />
           <Route path="/sent-files" element={<SentFiles />} />
           <Route path="/all-files" element={<AllFiles />} />
+          <Route path="/drafts" element={<Drafts />} />
           <Route path="/file/:fileId" element={<FileDetail />} />
           <Route path="/create-file" element={<CreateFile />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/users" element={<Users />} />
         </Routes>
       </Layout>
     </Router>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Shell />
+    </AuthProvider>
   )
 }
 

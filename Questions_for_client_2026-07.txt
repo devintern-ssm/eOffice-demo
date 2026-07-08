@@ -1,0 +1,161 @@
+====================================================================
+ e-Office (Noting–Correspondence) — QUESTIONS FOR THE CLIENT
+ Date: 2026-07-07
+ From: development team
+ Purpose: A few points from your latest answers + demo test still need
+          your decision before we build the next set of features.
+          Please write your answer under each "ANSWER:" line.
+          (Plain reply is fine — one or two lines each.)
+====================================================================
+
+
+PART A — WE NEED THESE TO PROCEED (they change how we build)
+--------------------------------------------------------------------
+
+A1. SUO-MOTO NOTES
+    You wrote: "the correspondence can be added without noting… There
+    are no arbitrary additions on the noting side."
+    So it sounds like a NOTE can never stand on its own — every note is
+    part of a workflow (it is written for review/approval), while
+    CORRESPONDENCE can be added on its own (e.g. a vendor's address-change
+    letter, with no note).
+    QUESTION: Is that correct? If yes, we will REMOVE the current
+    "Suo-moto note" option (a note with no correspondence) from the screen.
+    ANSWER:
+
+
+A2. DRAFT NOTES — WHO CAN SEE THEM?
+    A "draft" note is one you saved but have not submitted yet.
+    Today, once a file moves to another officer, that officer can see your
+    unsubmitted draft note on the file.
+    QUESTION: Should a draft note be PRIVATE to the person who wrote it
+    (invisible to everyone else until it is submitted)? Or is it fine for
+    the current holder of the file to see drafts?
+    ANSWER:
+
+
+A3. WHAT DOES "CHECK" MEAN IN YOUR PROCESS?
+    We currently support three review actions: Check, Approve, Revert
+    (with Reject / Request-clarification as variants of Revert).
+    You noted we should align on what "Check" means.
+    QUESTION: In your office, what is the difference between a "Check" and
+    an "Approve"? (e.g. Check = verified/seen and passed to the next
+    person; Approve = final sign-off.) Please describe in your words.
+    ANSWER:
+
+
+A4. APPROVAL ORDER — STRICT SEQUENCE OR SOMETIMES ANY-ORDER?
+    Normally reviewers act one after another in the order set by the
+    originator (strict sequence). But you wrote: "in a few cases, all
+    signatories are permitted to approve and add comments in random order."
+    QUESTION: Do you need an OPTIONAL "any-order / all-can-sign"
+    mode for such files? If yes, roughly what share of files need it, and
+    who decides which mode a file uses (the originator)?
+    ANSWER:
+
+
+A5. FILE FORMATS FOR ATTACHMENTS (CORRESPONDENCE)
+    Your written answer said "Phase 1 supports only PDF / please discuss,"
+    but during the demo the review asked us to support more formats — so we
+    have ENABLED: PDF, Word (.doc/.docx), Excel (.xls/.xlsx), and images
+    (.jpg/.png/.tif).
+    QUESTION: Please confirm this is what you want in Phase 1. Any other
+    formats to allow, or any to exclude? (Note: only PDFs get automatic
+    page numbering; other formats count as one item.)
+    ANSWER:
+
+
+A6. PRINTING — PAGE RANGE
+    You asked for print with "page-range selection (full, last note,
+    custom range)." We currently print the whole Noting set and the whole
+    Correspondence set separately. We will add range selection next.
+    QUESTION: For a "custom range," do you mean:
+      (a) by NOTE number (e.g. "Notes 3 to 6"), or
+      (b) by physical PAGE number of the printed output (e.g. "pages 4–9"),
+          or
+      (c) both?
+    ANSWER:
+
+
+PART B — PLEASE CONFIRM / CLARIFY (lower urgency)
+--------------------------------------------------------------------
+
+B1. FORWARD vs TRANSFER
+    You noted these are two different activities and we should discuss.
+    Our current meaning:
+      • FORWARD = send the file to the next reviewer in the SAME workflow
+        (it comes back through the chain).
+      • TRANSFER = permanently move the file to ANOTHER department
+        (the file number stays the same).
+    QUESTION: Is that the right distinction? Anything different you expect
+    when a file is transferred vs forwarded?
+    ANSWER:
+
+
+B2. "RELATED FILES" ON TRANSFER
+    The process document says "related files move when an activity
+    transfers," and you asked us to clear up "what are related files."
+    QUESTION: When one file is transferred to another department, what
+    makes another file "related" so that it should move too? (e.g. same
+    project, same subject, an explicit link created by the user?) Or should
+    each file be transferred on its own for now?
+    ANSWER:
+
+
+B3. CONFIDENTIAL FILES
+    You marked "seems like some confusion" here. Our current behaviour:
+    a confidential file is visible ONLY to the people involved with it
+    (creator, current holder, and named reviewers) plus the Super Admin;
+    it carries a CONFIDENTIAL mark and watermark on print.
+    QUESTION: Is that access rule correct? (The "temporary split/merge of a
+    confidential file for simultaneous use" remains a later-phase item —
+    please confirm that is acceptable.)
+    ANSWER:
+
+
+B4. DIGITAL SIGNATURES
+    For Phase 1 we use a typed name + an automatic system record (who,
+    when, which section) shown on print. You wrote PKI is "not needed in
+    phase 1 however, some people are expected to make digital signatures."
+    QUESTION: Who exactly is expected to use a real digital (certificate)
+    signature, and for which kind of files? Is the typed-name method
+    acceptable for everyone else in Phase 1?
+    ANSWER:
+
+
+B5. FILE CLOSURE
+    You wrote closure "is not required for most digital files unless there
+    is heavy volume of pages added."
+    QUESTION: Confirm we can treat closure as OPTIONAL (used only for
+    long-running / heavy files). Is there a page count or time limit at
+    which a file should be prompted to close?
+    ANSWER:
+
+
+B6. ADMIN ("SUPER ADMIN") ROLE — SCOPE
+    Per your review, the Admin can no longer open the Noting/Correspondence
+    content; the Admin now sees Dashboard, the All-Files report (with
+    "Submitted By" and "Department"), and the activity log.
+    QUESTION: Besides viewing reports, should the Admin be able to MANAGE
+    USERS (create/deactivate accounts, reset passwords, assign roles) in
+    the app? Anything else the Admin should be able to do?
+    ANSWER:
+
+
+PART C — ITEMS YOU PROMISED TO SEND
+--------------------------------------------------------------------
+
+C1. Photos of the two handwritten notes we could not read
+    ("9/w…" near attachments, and the circled Printing / Section-level
+    edit rights / Post-approval routing items).
+
+C2. Rasika ma'am's SAMPLE PRINT PDF — so we can match the exact print
+    layout (header/footer, approval-summary fields, spacing).
+
+    (No text answer needed — just share the files when convenient.)
+
+
+====================================================================
+ Thank you. The items in PART A are the ones that unblock the next
+ build; PART B can follow. — dev team
+====================================================================

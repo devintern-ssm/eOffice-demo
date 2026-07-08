@@ -6,6 +6,13 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    allowedHosts: ['dc7bd3e84e61.ngrok-free.app'] // Add this line to allow the ngrok host
-  }
+    allowedHosts: ['dc7bd3e84e61.ngrok-free.app'], // Add this line to allow the ngrok host
+    proxy: {
+      // Proxy API calls to the backend so the frontend can use same-origin /api paths.
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

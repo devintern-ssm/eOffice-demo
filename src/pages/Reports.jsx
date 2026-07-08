@@ -1,187 +1,147 @@
-import React, { useState } from 'react'
-import { FiFile, FiSearch, FiDownload, FiFilter } from 'react-icons/fi'
-import { files } from '../data/dummyData'
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { FiDownload, FiSearch, FiFilter } from 'react-icons/fi'
+import { getReport, exportReport } from '../api/reports'
+import { prettyStatus } from '../utils/status'
+import { useDepartmentNames } from '../hooks/useDepartments'
 import './Reports.css'
 
+const td = { padding: '9px 12px', borderBottom: '1px solid #edf2f7', verticalAlign: 'top' }
+const th = { padding: '10px 12px', borderBottom: '1px solid #e2e8f0' }
+
 const Reports = () => {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [dateFilter, setDateFilter] = useState('all')
-  const [sectionFilter, setSectionFilter] = useState('all')
+  const SECTIONS = useDepartmentNames()
+  const [data, setData] = useState({ rows: [], files: [], summary: {} })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [tab, setTab] = useState('files') // 'files' (register) | 'log' (activity)
+  const [section, setSection] = useState('all')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [search, setSearch] = useState('')
 
-  const sections = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
-
-  // Generate file logs
-  const fileLogs = files.flatMap(file => {
-    const logs = []
-    
-    // File creation log
-    logs.push({
-      id: `log-${file.id}-create`,
-      fileId: file.id,
-      fileNumber: file.fileNumber,
-      subject: file.subject,
-      action: 'File Created',
-      user: file.maker?.name || 'Unknown',
-      section: file.section,
-      date: file.createdDate,
-      details: `File created by ${file.maker?.name || 'Unknown'}`
-    })
-
-    // Movement logs
-    file.movements.forEach(mov => {
-      logs.push({
-        id: `log-${file.id}-${mov.id}`,
-        fileId: file.id,
-        fileNumber: file.fileNumber,
-        subject: file.subject,
-        action: mov.action,
-        user: mov.from.name,
-        section: mov.from.section,
-        date: mov.date,
-        details: `From: ${mov.from.name} → To: ${mov.to.name}. ${mov.remarks || ''}`
-      })
-    })
-
-    // Note logs
-    file.notes.forEach(note => {
-      logs.push({
-        id: `log-${file.id}-note-${note.id}`,
-        fileId: file.id,
-        fileNumber: file.fileNumber,
-        subject: file.subject,
-        action: `Note ${note.noteNumber} ${note.status}`,
-        user: note.author.name,
-        section: file.section,
-        date: note.date,
-        details: `Note ${note.noteNumber} by ${note.author.name} - ${note.status}`
-      })
-    })
-
-    return logs
-  })
-
-  const filteredLogs = fileLogs.filter(log => {
-    const matchesSearch = 
-      log.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.user.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesSection = sectionFilter === 'all' || log.section === sectionFilter
-    return matchesSearch && matchesSection
-  }).sort((a, b) => new Date(b.date) - new Date(a.date))
-
-  const handleExport = () => {
-    alert('Exporting file logs... (Demo mode)')
+  const load = () => {
+    setLoading(true)
+    getReport({ section, from, to, search })
+      .then((d) => { setData(d); setError(null) })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }
+
+  useEffect(() => { load() /* eslint-disable-next-line */ }, [section, from, to])
+
+  const summary = data.summary || {}
+  const cards = [
+    { label: 'Total Files', value: summary.totalFiles ?? 0 },
+    { label: 'Approved', value: summary.approved ?? 0 },
+    { label: 'Under Review', value: summary.underReview ?? 0 },
+    { label: 'Closed', value: summary.closed ?? 0 },
+  ]
+
+  const tabBtn = (id, label) => (
+    <button
+      onClick={() => setTab(id)}
+      style={{
+        padding: '8px 16px', borderRadius: 8, border: '1px solid #cbd5e0', cursor: 'pointer',
+        background: tab === id ? '#4c51bf' : '#fff', color: tab === id ? '#fff' : '#4a5568', fontWeight: 600,
+      }}
+    >{label}</button>
+  )
 
   return (
     <div className="reports-page">
-      <div className="page-header">
-        <h1>File Reports & Logs</h1>
-        <button className="btn-primary" onClick={handleExport}>
-          <FiDownload /> Export Logs
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Reports &amp; Logs</h1>
+        <button className="btn-primary" onClick={() => exportReport({ section, from, to, search }, tab)}>
+          <FiDownload /> Export CSV
         </button>
       </div>
 
-      <div className="filters-bar">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search by file number, subject, or user..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="filter-group">
-          <FiFilter className="filter-icon" />
-          <select
-            value={sectionFilter}
-            onChange={(e) => setSectionFilter(e.target.value)}
-            className="filter-select"
-          >
-            <option value="all">All Sections</option>
-            {sections.map(section => (
-              <option key={section} value={section}>{section}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-group">
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="filter-select"
-          >
-            <option value="all">All Dates</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-          </select>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, margin: '16px 0' }}>
+        {cards.map((c) => (
+          <div key={c.label} style={{ background: '#fff', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 26, fontWeight: 700 }}>{c.value}</div>
+            <div style={{ color: '#718096', fontSize: 13 }}>{c.label}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="reports-container">
-        <div className="reports-summary">
-          <div className="summary-card">
-            <div className="summary-label">Total Files</div>
-            <div className="summary-value">{files.length}</div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-label">Total Actions</div>
-            <div className="summary-value">{fileLogs.length}</div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-label">Active Files</div>
-            <div className="summary-value">
-              {files.filter(f => f.status !== 'Closed').length}
-            </div>
-          </div>
-        </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {tabBtn('files', 'All Files')}
+        {tabBtn('log', 'Activity Log')}
+      </div>
 
-        <div className="logs-table-container">
-          <table className="logs-table">
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>File Number</th>
-                <th>Subject</th>
-                <th>Action</th>
-                <th>User</th>
-                <th>Section</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLogs.length > 0 ? (
-                filteredLogs.map(log => (
-                  <tr key={log.id}>
-                    <td>{new Date(log.date).toLocaleString()}</td>
-                    <td className="file-number-cell">
-                      <a href={`/file/${log.fileId}`}>{log.fileNumber}</a>
-                    </td>
-                    <td>{log.subject}</td>
-                    <td>
-                      <span className={`action-badge ${log.action.toLowerCase().replace(/\s+/g, '-')}`}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td>{log.user}</td>
-                    <td>{log.section}</td>
-                    <td className="details-cell">{log.details}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" className="empty-state">
-                    No logs found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 220 }}>
+          <FiSearch />
+          <input type="text" placeholder="Search file number or subject… (Enter)" value={search}
+            onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()}
+            style={{ flex: 1, padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 8 }} />
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FiFilter />
+          <select value={section} onChange={(e) => setSection(e.target.value)} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e0' }}>
+            <option value="all">All Departments</option>
+            {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <label style={{ fontSize: 13 }}>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label style={{ fontSize: 13 }}>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 10, overflow: 'auto' }}>
+        {loading ? <div style={{ padding: 20, color: '#718096' }}>Loading…</div>
+          : error ? <div style={{ padding: 20, color: '#e53e3e' }}>Couldn’t load report: {error}</div>
+          : tab === 'files' ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', background: '#f7fafc' }}>
+                  {['File Number', 'Subject', 'Department', 'Status', 'Submitted By', 'Current Holder', 'Created'].map((h) => <th key={h} style={th}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {(data.files || []).map((f) => (
+                  <tr key={f.id}>
+                    <td style={td}><Link to={`/file/${f.id}`}>{f.fileNumber}</Link>{f.confidential && <FiLockMark />}</td>
+                    <td style={td}>{f.subject}</td>
+                    <td style={td}>{f.department}</td>
+                    <td style={td}>{prettyStatus(f.status)}</td>
+                    <td style={td}>{f.submittedBy || '—'}</td>
+                    <td style={td}>{f.holder || '—'}</td>
+                    <td style={td}>{new Date(f.createdDate).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {(data.files || []).length === 0 && <tr><td style={td} colSpan={7}>No files.</td></tr>}
+              </tbody>
+            </table>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', background: '#f7fafc' }}>
+                  {['Date', 'File', 'Subject', 'Section', 'Action', 'Actor', 'To', 'Remarks'].map((h) => <th key={h} style={th}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((r) => (
+                  <tr key={r.id}>
+                    <td style={td}>{new Date(r.date).toLocaleString()}</td>
+                    <td style={td}><Link to={`/file/${r.fileId}`}>{r.fileNumber}</Link></td>
+                    <td style={td}>{r.subject}</td>
+                    <td style={td}>{r.section}</td>
+                    <td style={td}>{prettyStatus(r.action)}</td>
+                    <td style={td}>{r.actor}</td>
+                    <td style={td}>{r.to || '—'}</td>
+                    <td style={td}>{r.remarks}</td>
+                  </tr>
+                ))}
+                {data.rows.length === 0 && <tr><td style={td} colSpan={8}>No log entries.</td></tr>}
+              </tbody>
+            </table>
+          )}
       </div>
     </div>
   )
 }
+
+const FiLockMark = () => <span title="Confidential" style={{ marginLeft: 6, color: '#e53e3e' }}>🔒</span>
 
 export default Reports
