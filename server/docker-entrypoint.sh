@@ -12,4 +12,5 @@ if [ "$SEED_ON_START" = "true" ]; then
 fi
 
 echo "[eoffice] Starting API on :${PORT:-4000}..."
-exec node dist/server.js
+# tsconfig rootDir="." keeps the tree, so the entry compiles to dist/src/server.js.
+exec node dist/src/server.js
