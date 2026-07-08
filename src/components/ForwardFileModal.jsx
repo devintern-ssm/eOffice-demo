@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { FiX, FiSend, FiUser } from 'react-icons/fi'
 import { listUsers, stepRoleForUser } from '../api/users'
 import { forwardFile, addReviewer } from '../api/workflow'
+import { useDepartmentNames } from '../hooks/useDepartments'
 import './Modal.css'
 
-const SECTIONS = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
-
 const ForwardFileModal = ({ file, onClose, onSaved }) => {
+  const SECTIONS = useDepartmentNames()
   const [users, setUsers] = useState([])
   const [selectedSection, setSelectedSection] = useState('')
   const [recipientOrder, setRecipientOrder] = useState([])

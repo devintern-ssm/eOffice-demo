@@ -7,6 +7,7 @@ import { filesRouter } from './modules/files/files.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import { reportsRouter } from './modules/reports/reports.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
+import { departmentsRouter } from './modules/departments/departments.routes.js';
 
 export function createApp() {
   const app = express();
@@ -22,6 +23,7 @@ export function createApp() {
   app.use('/api/v1/users', usersRouter);
   app.use('/api/v1/reports', reportsRouter);
   app.use('/api/v1/notifications', notificationsRouter);
+  app.use('/api/v1/departments', departmentsRouter);
   app.use('/api/v1/files', filesRouter);
 
   app.use(notFoundHandler);

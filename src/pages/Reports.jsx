@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { FiDownload, FiSearch, FiFilter } from 'react-icons/fi'
 import { getReport, exportReport } from '../api/reports'
 import { prettyStatus } from '../utils/status'
+import { useDepartmentNames } from '../hooks/useDepartments'
 import './Reports.css'
 
-const SECTIONS = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
 const td = { padding: '9px 12px', borderBottom: '1px solid #edf2f7', verticalAlign: 'top' }
 const th = { padding: '10px 12px', borderBottom: '1px solid #e2e8f0' }
 
 const Reports = () => {
+  const SECTIONS = useDepartmentNames()
   const [data, setData] = useState({ rows: [], files: [], summary: {} })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)

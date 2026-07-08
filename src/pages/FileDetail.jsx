@@ -13,6 +13,7 @@ import { submitNote, updateNote } from '../api/notes'
 import { openPrint } from '../api/print'
 import { listUsers } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
+import { useDepartmentNames } from '../hooks/useDepartments'
 import ActionModal from '../components/ActionModal'
 import { statusColor, prettyStatus } from '../utils/status'
 import AddNoteModal from '../components/AddNoteModal'
@@ -25,6 +26,7 @@ import './FileDetail.css'
 const FileDetail = () => {
   const { fileId } = useParams()
   const { user } = useAuth()
+  const deptNames = useDepartmentNames()
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -532,7 +534,7 @@ const FileDetail = () => {
           title="Transfer to Another Department" submitLabel="Transfer"
           onClose={() => setActiveAction(null)}
           fields={[
-            { name: 'toSection', label: 'Department', type: 'select', required: true, options: ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering'].map((s) => ({ value: s, label: s })) },
+            { name: 'toSection', label: 'Department', type: 'select', required: true, options: deptNames.filter((s) => s !== file.section).map((s) => ({ value: s, label: s })) },
             { name: 'reason', label: 'Reason', type: 'textarea', hint: 'The file number stays the same on transfer.' },
           ]}
           onSubmit={async (v) => setFile(await transferFile(fileId, { toSection: v.toSection, reason: v.reason }))}

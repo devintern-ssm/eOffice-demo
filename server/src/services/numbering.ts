@@ -8,7 +8,9 @@ import { deptCodeForSection } from '../utils/domain.js';
  * Returns e.g. "ACC/2026/001".
  */
 export async function allocateFileNumber(section: string, year: number): Promise<string> {
-  const deptCode = deptCodeForSection(section);
+  // Prefer the admin-managed Department code; fall back to the static map for legacy names.
+  const dept = await prisma.department.findUnique({ where: { name: section } });
+  const deptCode = dept?.code ?? deptCodeForSection(section);
 
   const seq = await prisma.$transaction(async (tx) => {
     const existing = await tx.numberSequence.findUnique({

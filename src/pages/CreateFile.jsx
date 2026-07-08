@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiX, FiSave } from 'react-icons/fi'
-import { sections } from '../data/dummyData'
 import { createFile } from '../api/files'
+import { useDepartmentNames } from '../hooks/useDepartments'
 import './CreateFile.css'
 
 const CreateFile = () => {
   const navigate = useNavigate()
+  const sections = useDepartmentNames()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [formData, setFormData] = useState({

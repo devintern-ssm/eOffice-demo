@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, ApiError } from '../../utils/http.js';
 import { authenticate } from '../../middleware/auth.js';
-import { SECTIONS } from '../../utils/domain.js';
 import {
   assertCanAccessFile, createFile, getFileDetail, getFileStats, listFiles, submitFile,
 } from './files.service.js';
@@ -19,7 +18,7 @@ filesRouter.use(authenticate);
 
 const createSchema = z.object({
   subject: z.string().min(1),
-  section: z.enum(SECTIONS),
+  section: z.string().min(1), // any admin-managed department (observation #1)
   confidential: z.boolean().optional(),
   priority: z.enum(['Normal', 'High', 'Urgent']).optional(),
   customFileNumber: z.string().optional(),

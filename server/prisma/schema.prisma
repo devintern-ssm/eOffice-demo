@@ -228,6 +228,18 @@ model Notification {
 }
 
 // ---------------------------------------------------------------------------
+// Departments / sections — admin-manageable (observation #1). `code` feeds the
+// DEPT/YEAR/SEQ file number; `name` is what appears on files and pickers.
+// ---------------------------------------------------------------------------
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   // short code used in file numbers (e.g. ADMIN, ACC)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
 // Per (department, year) sequence allocator for DEPT/YEAR/SEQ numbers (D1/D2)
 // ---------------------------------------------------------------------------
 model NumberSequence {

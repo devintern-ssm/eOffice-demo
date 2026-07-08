@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react'
-import { FiUserPlus, FiX, FiKey } from 'react-icons/fi'
+import { FiUserPlus, FiX, FiKey, FiPlus } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import { listAllUsers, createUser, updateUser, resetUserPassword } from '../api/users'
+import { listAllDepartments, createDepartment, updateDepartment } from '../api/departments'
 import '../components/Modal.css'
 
 const ROLES = ['MAKER', 'CHECKER', 'APPROVER', 'MD', 'ADMIN']
-const SECTIONS = ['Administration', 'Accounts', 'Legal', 'Audit', 'Finance', 'Engineering']
 const td = { padding: '10px 12px', borderBottom: '1px solid #edf2f7', verticalAlign: 'middle', fontSize: 13 }
 const th = { padding: '10px 12px', borderBottom: '1px solid #e2e8f0', textAlign: 'left', fontSize: 12, color: '#718096', textTransform: 'uppercase' }
 
-const emptyForm = { name: '', designation: '', section: 'Administration', role: 'MAKER', email: '', password: '' }
+const emptyForm = { name: '', designation: '', section: '', role: 'MAKER', email: '', password: '' }
 
 const Users = () => {
   const { user: me } = useAuth()
   const [users, setUsers] = useState([])
+  const [depts, setDepts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(null) // id currently mutating
@@ -21,12 +22,26 @@ const Users = () => {
   const [form, setForm] = useState(emptyForm)
   const [formErr, setFormErr] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [newDept, setNewDept] = useState({ name: '', code: '' })
+  const [deptErr, setDeptErr] = useState(null)
+
+  const SECTIONS = depts.filter((d) => d.active).map((d) => d.name)
 
   const load = () => {
     setLoading(true)
-    listAllUsers().then((u) => { setUsers(u); setError(null) }).catch((e) => setError(e.message)).finally(() => setLoading(false))
+    Promise.all([listAllUsers(), listAllDepartments()])
+      .then(([u, d]) => { setUsers(u); setDepts(d); setError(null) })
+      .catch((e) => setError(e.message)).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
+
+  const addDept = async () => {
+    setDeptErr(null)
+    if (!newDept.name.trim() || !newDept.code.trim()) { setDeptErr('Name and code are required'); return }
+    try { await createDepartment({ name: newDept.name.trim(), code: newDept.code.trim() }); setNewDept({ name: '', code: '' }); load() }
+    catch (e) { setDeptErr(e.message) }
+  }
+  const toggleDept = (d) => updateDepartment(d.id, { active: !d.active }).then(load).catch((e) => alert(e.message))
 
   const mutate = async (id, fn) => {
     setBusy(id)
@@ -46,6 +61,7 @@ const Users = () => {
   const submitNew = async (e) => {
     e.preventDefault()
     setFormErr(null)
+    if (!form.section) { setFormErr('Select a department'); return }
     if (form.password.length < 6) { setFormErr('Password must be at least 6 characters'); return }
     setSaving(true)
     try {
@@ -61,6 +77,28 @@ const Users = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1>User Management</h1>
         <button className="btn-primary" onClick={() => setShowAdd(true)}><FiUserPlus /> Add User</button>
+      </div>
+
+      {/* Departments (observation #1) */}
+      <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 16, marginBottom: 10 }}>Departments</h2>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          {depts.map((d) => (
+            <span key={d.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 16, fontSize: 13, background: d.active ? '#ebf4ff' : '#edf2f7', color: d.active ? '#2b6cb0' : '#a0aec0' }}>
+              <strong>{d.name}</strong> <em style={{ opacity: 0.7 }}>({d.code})</em>
+              <button onClick={() => toggleDept(d)} title={d.active ? 'Deactivate' : 'Activate'} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'inherit', fontSize: 11 }}>
+                {d.active ? '✕' : '↺'}
+              </button>
+            </span>
+          ))}
+          {depts.length === 0 && <span style={{ color: '#a0aec0', fontSize: 13 }}>No departments</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input value={newDept.name} onChange={(e) => setNewDept((p) => ({ ...p, name: e.target.value }))} placeholder="New department name" style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e0' }} />
+          <input value={newDept.code} onChange={(e) => setNewDept((p) => ({ ...p, code: e.target.value }))} placeholder="Code (e.g. HR)" maxLength={10} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e0', width: 130 }} />
+          <button className="btn-primary" onClick={addDept}><FiPlus /> Add Department</button>
+          {deptErr && <span style={{ color: '#e53e3e', fontSize: 13 }}>{deptErr}</span>}
+        </div>
       </div>
 
       <div style={{ background: '#fff', borderRadius: 10, overflow: 'auto' }}>
@@ -83,7 +121,7 @@ const Users = () => {
                       <td style={td}>{u.designation}</td>
                       <td style={td}>
                         <select value={u.section} disabled={busy === u.id} onChange={(e) => changeSection(u, e.target.value)} style={{ padding: 4, borderRadius: 6, border: '1px solid #cbd5e0' }}>
-                          {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                          {(SECTIONS.includes(u.section) ? SECTIONS : [u.section, ...SECTIONS]).map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
                       <td style={td}>
@@ -124,7 +162,10 @@ const Users = () => {
               <div className="form-group"><label>Designation *</label><input value={form.designation} onChange={field('designation')} required /></div>
               <div className="form-row">
                 <div className="form-group"><label>Department *</label>
-                  <select value={form.section} onChange={field('section')}>{SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+                  <select value={form.section} onChange={field('section')}>
+                    <option value="">Select department…</option>
+                    {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
                 <div className="form-group"><label>Role *</label>
                   <select value={form.role} onChange={field('role')}>{ROLES.map((r) => <option key={r} value={r}>{r}</option>)}</select>

@@ -19,6 +19,19 @@ async function main() {
   await prisma.file.deleteMany();
   await prisma.numberSequence.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.department.deleteMany();
+
+  // Departments / sections (admin-manageable — observation #1).
+  await prisma.department.createMany({
+    data: [
+      { name: 'Administration', code: 'ADMIN' },
+      { name: 'Accounts', code: 'ACC' },
+      { name: 'Legal', code: 'LEGAL' },
+      { name: 'Audit', code: 'AUDIT' },
+      { name: 'Finance', code: 'FIN' },
+      { name: 'Engineering', code: 'ENG' },
+    ],
+  });
 
   const passwordHash = await bcrypt.hash(DEV_PASSWORD, 10);
 

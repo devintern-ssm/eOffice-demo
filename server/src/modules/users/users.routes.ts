@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, ApiError } from '../../utils/http.js';
 import { authenticate, requireRole } from '../../middleware/auth.js';
-import { ROLES, SECTIONS } from '../../utils/domain.js';
+import { ROLES } from '../../utils/domain.js';
 import { prisma } from '../../prisma.js';
 import { registerUser, hashPassword } from '../auth/auth.service.js';
 
@@ -39,7 +39,7 @@ usersRouter.get('/all', requireAdmin, asyncHandler(async (_req, res) => {
 const createUserSchema = z.object({
   name: z.string().min(1),
   designation: z.string().min(1),
-  section: z.enum(SECTIONS),
+  section: z.string().min(1),
   role: z.enum(ROLES),
   email: z.string().email(),
   password: z.string().min(6),
@@ -53,7 +53,7 @@ usersRouter.post('/', requireAdmin, asyncHandler(async (req, res) => {
 
 const updateUserSchema = z.object({
   role: z.enum(ROLES).optional(),
-  section: z.enum(SECTIONS).optional(),
+  section: z.string().min(1).optional(),
   designation: z.string().min(1).optional(),
   active: z.boolean().optional(),
 });

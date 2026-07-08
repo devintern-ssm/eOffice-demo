@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/http.js';
-import { SECTIONS } from '../../utils/domain.js';
 import { closeFile, returnToMaker, routeToDept, transferFile } from './lifecycle.service.js';
 
 export const lifecycleRouter = Router({ mergeParams: true });
@@ -17,7 +16,7 @@ lifecycleRouter.post('/return', asyncHandler(async (req, res) => {
 }));
 
 lifecycleRouter.post('/transfer', asyncHandler(async (req, res) => {
-  const input = z.object({ toSection: z.enum(SECTIONS), toUserId: z.string().optional(), reason: z.string().optional() }).parse(req.body);
+  const input = z.object({ toSection: z.string().min(1), toUserId: z.string().optional(), reason: z.string().optional() }).parse(req.body);
   res.json({ file: await transferFile(req.params.id, input, req.user!) });
 }));
 
