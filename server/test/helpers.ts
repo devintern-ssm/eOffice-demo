@@ -12,6 +12,7 @@ export const USERS = {
   priya: { id: 'u-priya', email: 'priya.sharma@example.com' },   // CHECKER (Administration)
   amit: { id: 'u-amit', email: 'amit.patel@example.com' },       // APPROVER (Administration)
   vikram: { id: 'u-vikram', email: 'vikram.singh@example.com' }, // MAKER (Legal) — an outsider
+  md: { id: 'u-md', email: 'md@example.com' },                   // MD (final approver)
   admin: { id: 'u-admin', email: 'admin@example.com' },          // ADMIN
 };
 
