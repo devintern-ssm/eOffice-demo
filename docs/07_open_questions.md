@@ -736,4 +736,25 @@ The following are our recommended Phase-2 deferrals based on [CLARIFIED] handwri
 
 **Explicitly IN scope for Phase 1 (everything not deferred above), notably:** UN/dept display (S1), draft notes (S3), approved-file search/reference (S4), Maker-Checker-Approver workflow incl. multiple checkers and post-checker comments (S6), Inward/Outward inbox (S7), created-by visibility (S8), two-page Noting/Correspondence preview (S9), reports + export (S10/H8), MD approval incl. offline upload (S11), final-approval print with page-range + summary + approval details + header/footer (S12/S14/S16/H16), section-level edit rights (S17), predefined-but-modifiable recipient workflow (S18/H13), post-approval routing back to Maker (S19/H14), file lock concept (H6), **closure date + successor linkage (SD §9/H17 — SD-confirmed)**, **cross-dept permanent transfer (SD "Additional Points" — SD-confirmed)**, **suo-moto notes (SD §8 — SD-confirmed)**, **paragraph-level approval mechanism (SD §4.2 — SD-confirmed)**, and **complete immutable audit/movement log (SD §5/§9 — SD-confirmed)** — all subject to the decisions above.
 
-> **Note on the two-page preview orientation (S9 / H7):** [CLARIFIED] H7 maps **L = Noting Side / R = Correspondence Side** (left/right), matching the physical N-C file (SD §2.2 "Left Side" / "Right Side"). [OBSERVED] the prototype actually **stacks the two sides vertically** — NOTING SIDE is the "Top Half" (`src/pages/FileDetail.jsx:349-352`) and CORRESPONDENCE SIDE the "Bottom Half" (`:406-409`) — not side-by-side. The SD author-margin convention (Note-1 author at right margin, later notes at left, SD §2.2A) is still honored; only the pane arrangement differs (top/bottom in code vs left/right in SD/H7). Confirm the intended Phase-1 layout (left/right vs top/bottom). This does not change any decision above; it is recorded so the left/right framing elsewhere in the discovery set is read against the current code reality.
+> **Note on the two-page preview orientation (S9 / H7):** [CLARIFIED] H7 maps **L = Noting Side / R = Correspondence Side** (left/right), matching the physical N-C file (SD §2.2 "Left Side" / "Right Side"). [OBSERVED] the prototype actually **stacks the two sides vertically** — NOTING SIDE is the "Top Half" (`src/pages/FileDetail.jsx:349-352`) and CORRESPONDENCE SIDE the "Bottom Half" (`:406-409`) — not side-by-side. The SD author-margin convention (Note-1 author at right margin, later notes at left, SD §2.2A) is still honored; only the pane arrangement differs (top/bottom in code vs left/right in SD/H7). Confirm the intended Phase-1 layout (left/right vs top/bottom). This does not change any decision above; it is recorded so the left/right framing elsewhere in the discovery set is read against the current code reality. *(Round-2 built the side-by-side + maximise layout, `10:C8` — this orientation note is resolved.)*
+
+---
+
+## Update — Pre-demo QA hardening pass (2026-07-09)
+
+> Added during the adversarial QA pass on branch `qa/pre-demo-hardening`. Full detail + competing
+> interpretations + recommended defaults live in **[`../QUESTIONS_FOR_CLIENT.md`](../QUESTIONS_FOR_CLIENT.md)**.
+> These are genuinely-ambiguous *intent* items surfaced while validating the built system against
+> `08_requirements_decisions.md` and `10_round2_review_changes.md`; they are **not** defects (defects are
+> in `../TEST_REPORT.md`).
+
+- **QA-Q1** Originator vs holder authority on `route`/`close` after handoff (transfer already tightened to holder-only — TEST_REPORT BUG-2). 🔴 OPEN.
+- **QA-Q2** Separation of duties — may a user be Maker **and** Checker/Approver on the same file? Currently allowed. 🔴 OPEN.
+- **QA-Q3** Must the optional user-entered custom file number be unique? Currently not enforced. 🔴 OPEN.
+- **QA-Q4** Are in-app notifications in scope now (built) or Phase-2 (`08:117`)? 🔴 OPEN (scope).
+- **QA-Q5** Precise confidential-visibility rule in Reports; who composes a confidential file's access list (`05:113`). 🟡 PARTIAL.
+- **QA-Q6** Any-order / all-can-sign approval mode vs strict-sequential (`10:33,57`) — not built. 🔴 OPEN.
+- **QA-Q7** Exact "Check" vs "Approve" semantics (`10:40`). 🟡 PARTIAL.
+- **QA-Q8** Draft-note travel + hidden-from-others (C13, `08:60` vs `10:39`). 🟡 PARTIAL.
+- **QA-Q9** Final allowed attachment formats & 25 MB cap for Phase 1 (C22, `10:28` vs `10:54`). 🟡 PARTIAL.
+- **QA-Q10** Print physical-page ranges (not just note-number ranges) (`10:56`); awaiting sample print PDF. 🔴 OPEN.
