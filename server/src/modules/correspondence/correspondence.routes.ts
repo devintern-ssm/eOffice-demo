@@ -27,8 +27,8 @@ correspondenceRouter.post('/', upload.single('file'), asyncHandler(async (req, r
 }));
 
 correspondenceRouter.get('/:corrId/file', asyncHandler(async (req, res) => {
-  const { path, mime, filename } = await getCorrespondenceFile(req.params.id, req.params.corrId);
+  const { buffer, mime, filename } = await getCorrespondenceFile(req.params.id, req.params.corrId);
   res.setHeader('Content-Type', mime);
   res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-  res.sendFile(path);
+  res.send(buffer);
 }));

@@ -1,0 +1,17 @@
+# eOffice web tier: build the Vite frontend, then serve it with Caddy.
+# Caddy also reverse-proxies /api/* to the backend and terminates TLS (auto Let's Encrypt).
+# Build context is the repo root (see docker-compose.yml).
+
+# --- build stage: produce the static dist/ ---
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# --- serve stage: Caddy with the built assets baked in ---
+FROM caddy:2-alpine
+COPY --from=build /app/dist /srv
+COPY Caddyfile /etc/caddy/Caddyfile
+EXPOSE 80 443

@@ -100,10 +100,12 @@ export async function addCorrespondence(
 export async function getCorrespondenceFile(fileId: string, corrId: string) {
   const c = await prisma.correspondence.findFirst({ where: { id: corrId, fileId } });
   if (!c) throw ApiError.notFound('Correspondence not found');
-  if (!c.storageKey || !storage.exists(c.storageKey)) throw ApiError.notFound('No file attached');
+  if (!c.storageKey) throw ApiError.notFound('No file attached');
+  const buffer = await storage.read(c.storageKey);
+  if (!buffer) throw ApiError.notFound('No file attached');
   const ext = extForAttachment(c.mime, c.originalName ?? undefined);
   return {
-    path: storage.resolve(c.storageKey),
+    buffer,
     mime: c.mime,
     filename: c.originalName || `${c.number.replace('/', '-')}.${ext}`,
   };

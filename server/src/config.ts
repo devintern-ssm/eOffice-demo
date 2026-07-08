@@ -15,4 +15,14 @@ export const config = {
     .map((s) => s.trim()),
   uploadDir: process.env.UPLOAD_DIR ?? './uploads',
   isProd: process.env.NODE_ENV === 'production',
+  // Blob storage: 'disk' (default, dev + tests) or 's3' (S3/MinIO in the deployed stack).
+  storageDriver: (process.env.STORAGE_DRIVER ?? 'disk') as 'disk' | 's3',
+  s3: {
+    endpoint: process.env.S3_ENDPOINT ?? '', // e.g. http://minio:9000 (MinIO); empty for AWS
+    region: process.env.S3_REGION ?? 'us-east-1',
+    bucket: process.env.S3_BUCKET ?? 'eoffice',
+    accessKeyId: process.env.S3_ACCESS_KEY ?? '',
+    secretAccessKey: process.env.S3_SECRET_KEY ?? '',
+    forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true', // MinIO needs path-style
+  },
 };
