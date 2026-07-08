@@ -56,37 +56,38 @@ export async function uploadMdApproval(fileId: string, input: { remarks?: string
 export async function assignParagraphApprover(
   fileId: string,
   noteId: string,
-  input: { paragraphMark: string; approverId: string },
+  input: { paragraphMark?: string; approverId: string; role?: 'CHECKER' | 'APPROVER' },
   user: AuthUser,
 ) {
   const file = await prisma.file.findUnique({ where: { id: fileId } });
   if (!file) throw ApiError.notFound('File not found');
   if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
-  // Only the current holder / originator may plan paragraph approvers.
+  // Only the current holder / originator may plan note reviewers.
   if (!(file.currentHolderId === user.id || file.createdById === user.id)) {
-    throw ApiError.forbidden('Only the current holder can assign a paragraph approver');
+    throw ApiError.forbidden('Only the current holder can assign a note reviewer');
   }
   const note = await prisma.note.findFirst({ where: { id: noteId, fileId } });
   if (!note) throw ApiError.notFound('Note not found');
   const approver = await prisma.user.findUnique({ where: { id: input.approverId } });
-  if (!approver) throw ApiError.badRequest('Approver (user) not found');
-  const mark = input.paragraphMark.trim().toUpperCase();
-  if (!mark) throw ApiError.badRequest('A paragraph mark (e.g. A) is required');
+  if (!approver) throw ApiError.badRequest('Assignee (user) not found');
+  const mark = (input.paragraphMark ?? '').trim().toUpperCase() || '—'; // '—' = whole note (observation #6)
+  const role = input.role === 'CHECKER' ? 'CHECKER' : 'APPROVER';
+  const where = mark === '—' ? `Note ${note.noteNumber}` : `paragraph ${mark} of Note ${note.noteNumber}`;
 
   await prisma.$transaction(async (tx) => {
-    // Replace any prior PENDING assignment for the same paragraph.
+    // Replace any prior PENDING assignment for the same note/paragraph.
     await tx.paragraphApproval.deleteMany({ where: { noteId, paragraphMark: mark, status: 'PENDING' } });
     await tx.paragraphApproval.create({
-      data: { noteId, paragraphMark: mark, status: 'PENDING', assignedToId: approver.id, assignedToName: approver.name },
+      data: { noteId, paragraphMark: mark, role, status: 'PENDING', assignedToId: approver.id, assignedToName: approver.name },
     });
     await tx.movement.create({
       data: {
         fileId, type: 'ASSIGN', actorId: user.id, actorName: user.name,
         toUserId: approver.id, toName: approver.name,
-        remarks: `Assigned ${approver.name} to approve paragraph ${mark} of Note ${note.noteNumber}`,
+        remarks: `Assigned ${approver.name} as ${role} for ${where}`,
       },
     });
-    if (approver.id !== user.id) await tx.notification.create(notifyData(approver.id, 'ASSIGN', `You were assigned to approve paragraph ${mark} of Note ${note.noteNumber}: ${file.subject}`, fileId));
+    if (approver.id !== user.id) await tx.notification.create(notifyData(approver.id, 'ASSIGN', `You were assigned as ${role} for ${where}: ${file.subject}`, fileId));
   });
 
   return getFileDetail(fileId, user);

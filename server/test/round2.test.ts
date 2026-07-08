@@ -133,6 +133,19 @@ describe('#1/#2 role assignment', () => {
     expect(para.assignedTo).toBe('Amit Patel');
   });
 
+  it('assigns a Checker to a whole note (no paragraph) — observation #6', async () => {
+    const id = await createFile(maker, { initialNote: 'note-level' });
+    const d = await detail(id, maker);
+    const noteId = d.body.file.notes[0].id;
+    const res = await api().post(`/api/v1/files/${id}/notes/${noteId}/assign-approver`).set(bearer(maker))
+      .send({ approverId: USERS.priya.id, role: 'CHECKER' });
+    expect(res.status).toBe(201);
+    const a = res.body.file.notes[0].approvals.find((x: any) => x.role === 'CHECKER');
+    expect(a.paragraph).toBe('—');
+    expect(a.assignedTo).toBe('Priya Sharma');
+    expect(a.status).toBe('PENDING');
+  });
+
   it('403s an outsider trying to assign a paragraph approver', async () => {
     const id = await createFile(maker, { initialNote: 'para note 2' });
     const d = await detail(id, maker);

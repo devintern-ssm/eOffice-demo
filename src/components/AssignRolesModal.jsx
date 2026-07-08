@@ -11,7 +11,8 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
   const [makerId, setMakerId] = useState(file.currentAssignee || '')
   const [reviewers, setReviewers] = useState({}) // userId -> role
   const [paraNoteId, setParaNoteId] = useState(file.notes?.[0]?.id || '')
-  const [paraMark, setParaMark] = useState('A')
+  const [paraMark, setParaMark] = useState('')
+  const [paraRole, setParaRole] = useState('APPROVER')
   const [paraApproverId, setParaApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -55,9 +56,8 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
 
   const doPara = () => {
     if (!paraNoteId) { setError('Choose a note'); return }
-    if (!paraMark.trim()) { setError('Enter a paragraph mark (e.g. A)'); return }
-    if (!paraApproverId) { setError('Choose an approver'); return }
-    run(() => assignParagraphApprover(file.id, paraNoteId, { paragraphMark: paraMark, approverId: paraApproverId }), 'Paragraph approver assigned.')
+    if (!paraApproverId) { setError('Choose a person'); return }
+    run(() => assignParagraphApprover(file.id, paraNoteId, { paragraphMark: paraMark, approverId: paraApproverId, role: paraRole }), 'Note reviewer assigned.')
   }
 
   const STEP_ROLES = ['CHECKER', 'APPROVER', 'MD']
@@ -123,20 +123,24 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
             </button>
           </div>
 
-          {/* Para-wise approver */}
+          {/* Reviewer for a specific note (observation #6) */}
           <div style={section}>
-            <label style={{ fontWeight: 600 }}>Para-wise Approver</label>
+            <label style={{ fontWeight: 600 }}>Reviewer for a specific note</label>
             <small style={{ display: 'block', color: '#718096', marginBottom: 8 }}>
-              Route a specific paragraph of a note to a nominated approver.
+              Assign a Checker or Approver to a chosen note (e.g. “Note 3 approved by …”). Paragraph is optional.
             </small>
             {file.notes?.length ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 1fr auto', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 1fr auto', gap: 8, alignItems: 'center' }}>
                 <select value={paraNoteId} onChange={(e) => setParaNoteId(e.target.value)}>
                   {file.notes.map((n) => <option key={n.id} value={n.id}>Note {n.noteNumber}</option>)}
                 </select>
-                <input type="text" value={paraMark} onChange={(e) => setParaMark(e.target.value)} placeholder="Para" maxLength={3} />
+                <select value={paraRole} onChange={(e) => setParaRole(e.target.value)}>
+                  <option value="APPROVER">Approver</option>
+                  <option value="CHECKER">Checker</option>
+                </select>
+                <input type="text" value={paraMark} onChange={(e) => setParaMark(e.target.value)} placeholder="Para" maxLength={3} title="Optional paragraph (A, B…)" />
                 <select value={paraApproverId} onChange={(e) => setParaApproverId(e.target.value)}>
-                  <option value="">Approver…</option>
+                  <option value="">Person…</option>
                   {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
                 </select>
                 <button type="button" className="btn-primary" disabled={busy} onClick={doPara}>Assign</button>

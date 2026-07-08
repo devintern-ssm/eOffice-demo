@@ -197,6 +197,7 @@ export async function getFileDetail(id: string, viewer?: AuthUser) {
       },
       approvals: n.paragraphApprovals.map((p) => ({
         paragraph: p.paragraphMark,
+        role: p.role,
         status: p.status,
         assignedTo: p.assignedToName,
         approvedBy: p.approvedByName,

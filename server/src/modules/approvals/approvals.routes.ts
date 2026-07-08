@@ -22,7 +22,11 @@ approvalsRouter.post('/notes/:noteId/comments', asyncHandler(async (req, res) =>
 }));
 
 approvalsRouter.post('/notes/:noteId/assign-approver', asyncHandler(async (req, res) => {
-  const input = z.object({ paragraphMark: z.string().min(1), approverId: z.string() }).parse(req.body);
+  const input = z.object({
+    paragraphMark: z.string().optional(),
+    approverId: z.string(),
+    role: z.enum(['CHECKER', 'APPROVER']).optional(),
+  }).parse(req.body);
   const file = await assignParagraphApprover(req.params.id, req.params.noteId, input, req.user!);
   res.status(201).json({ file });
 }));

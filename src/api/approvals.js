@@ -11,9 +11,10 @@ export function addNoteComment(fileId, noteId, comment) {
   return apiFetch(`/files/${fileId}/notes/${noteId}/comments`, { method: 'POST', body: JSON.stringify({ comment }) }).then((d) => d.file)
 }
 
-/** Assign a paragraph-wise approver to a note. body: { paragraphMark, approverId } */
-export function assignParagraphApprover(fileId, noteId, { paragraphMark, approverId }) {
+/** Assign a Checker/Approver to a specific note (optional paragraph).
+ *  body: { approverId, role?: 'CHECKER'|'APPROVER', paragraphMark? } */
+export function assignParagraphApprover(fileId, noteId, { paragraphMark, approverId, role }) {
   return apiFetch(`/files/${fileId}/notes/${noteId}/assign-approver`, {
-    method: 'POST', body: JSON.stringify({ paragraphMark, approverId }),
+    method: 'POST', body: JSON.stringify({ paragraphMark, approverId, role }),
   }).then((d) => d.file)
 }

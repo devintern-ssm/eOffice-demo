@@ -113,8 +113,9 @@ model ParagraphApproval {
   id            String   @id @default(uuid())
   noteId        String
   note          Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  paragraphMark String   // 'A', 'B', ...  (SD §4.2)
-  // Assignment (review #2): a paragraph can be routed to a specific approver ahead of time.
+  paragraphMark String   // 'A', 'B', … or '—' for the whole note (SD §4.2 / observation #6)
+  role           String  @default("APPROVER") // CHECKER | APPROVER — who is assigned to this note
+  // Assignment (review #2 / #6): a note (or paragraph) can be routed to a specific person ahead of time.
   status         String  @default("APPROVED") // PENDING (assigned, not yet approved) | APPROVED
   assignedToId   String?
   assignedToName String?

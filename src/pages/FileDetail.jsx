@@ -403,11 +403,14 @@ const FileDetail = () => {
                       )}
                       {note.approvals && note.approvals.length > 0 && (
                         <div className="note-status">
-                          {note.approvals.map((a, i) => (
-                            <div key={i} style={{ color: a.status === 'PENDING' ? '#ed8936' : '#38b2ac' }}>
-                              Para {a.paragraph}: {a.status === 'PENDING' ? `assigned to ${a.assignedTo} (pending)` : `approved by ${a.approvedBy}`}
-                            </div>
-                          ))}
+                          {note.approvals.map((a, i) => {
+                            const scope = a.paragraph && a.paragraph !== '—' ? `Para ${a.paragraph}` : 'Note'
+                            return (
+                              <div key={i} style={{ color: a.status === 'PENDING' ? '#ed8936' : '#38b2ac' }}>
+                                {scope} · {a.role || 'APPROVER'}: {a.status === 'PENDING' ? `${a.assignedTo} (pending)` : `approved by ${a.approvedBy}`}
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                       {note.checkerComments && note.checkerComments.length > 0 && (

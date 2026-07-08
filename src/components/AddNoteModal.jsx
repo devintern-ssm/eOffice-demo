@@ -43,16 +43,16 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
   }
   const setReviewerRole = (id, role) => setReviewers((prev) => ({ ...prev, [id]: role }))
 
-  const addParaRow = () => setParas((p) => [...p, { mark: '', approverId: '' }])
+  const addParaRow = () => setParas((p) => [...p, { mark: '', approverId: '', role: 'APPROVER' }])
   const setPara = (i, key, val) => setParas((p) => p.map((row, idx) => (idx === i ? { ...row, [key]: val } : row)))
   const removePara = (i) => setParas((p) => p.filter((_, idx) => idx !== i))
 
   const applyAssignments = async (noteId) => {
-    // Paragraph-wise approvers first (creator is still authorised) (#3)
+    // Per-note reviewers first (creator is still authorised) (#3/#6)
     for (const row of paras) {
-      if (row.mark.trim() && row.approverId) {
+      if (row.approverId) {
         // eslint-disable-next-line no-await-in-loop
-        await assignParagraphApprover(file.id, noteId, { paragraphMark: row.mark.trim(), approverId: row.approverId })
+        await assignParagraphApprover(file.id, noteId, { paragraphMark: row.mark.trim(), approverId: row.approverId, role: row.role })
       }
     }
     // Reviewer chain (#2 — explicit Checker/Approver/MD roles)
@@ -198,20 +198,24 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
                 <small style={{ color: '#4c51bf' }}>On submit, the file is sent through {Object.keys(reviewers).length} reviewer(s) in order.</small>
               )}
 
-              {/* Paragraph-wise approvers (#3) */}
+              {/* Per-note reviewers — Checker/Approver for this note, optional paragraph (#3/#6) */}
               <div style={{ marginTop: 10 }}>
-                <label style={{ fontSize: 13, fontWeight: 600 }}>Para-wise approvers (optional)</label>
+                <label style={{ fontSize: 13, fontWeight: 600 }}>Reviewers for this note (optional)</label>
                 {paras.map((row, i) => (
                   <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
-                    <input type="text" value={row.mark} onChange={(e) => setPara(i, 'mark', e.target.value)} placeholder="Para (A)" maxLength={3} style={{ width: 70 }} />
+                    <select value={row.role} onChange={(e) => setPara(i, 'role', e.target.value)} style={{ width: 110 }}>
+                      <option value="APPROVER">Approver</option>
+                      <option value="CHECKER">Checker</option>
+                    </select>
+                    <input type="text" value={row.mark} onChange={(e) => setPara(i, 'mark', e.target.value)} placeholder="Para (opt.)" maxLength={3} style={{ width: 80 }} />
                     <select value={row.approverId} onChange={(e) => setPara(i, 'approverId', e.target.value)} style={{ flex: 1 }}>
-                      <option value="">Approver…</option>
+                      <option value="">Person…</option>
                       {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
                     </select>
                     <button type="button" className="corr-btn" style={{ width: 'auto', padding: '6px 8px' }} onClick={() => removePara(i)}><FiTrash2 /></button>
                   </div>
                 ))}
-                <button type="button" className="corr-btn" style={{ width: 'auto', marginTop: 6, display: 'inline-flex' }} onClick={addParaRow}><FiPlus /> Add paragraph approver</button>
+                <button type="button" className="corr-btn" style={{ width: 'auto', marginTop: 6, display: 'inline-flex' }} onClick={addParaRow}><FiPlus /> Add note reviewer</button>
               </div>
             </div>
           )}
