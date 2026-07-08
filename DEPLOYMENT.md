@@ -7,8 +7,19 @@ plus a one-shot bucket initializer:
 |---|---|---|---|
 | **web** | `Dockerfile.web` (Vite build → Caddy) | Serves the frontend, reverse-proxies `/api` → api, terminates TLS | 80, 443 |
 | **api** | `server/Dockerfile` (Express + Prisma/SQLite) | Backend API; runs `prisma migrate deploy` on start | internal :4000 |
-| **minio** | `minio/minio` | S3-compatible object store for uploaded documents | console on `127.0.0.1:9001` |
-| **createbuckets** | `minio/mc` | Creates the `eoffice` bucket, then exits | — |
+| **minio** *(opt-in)* | `minio/minio` (pinned) | S3 object store — only with `--profile s3` | console on `127.0.0.1:9001` |
+| **createbuckets** *(opt-in)* | `minio/mc` (pinned) | Creates the `eoffice` bucket, then exits | — |
+
+### Document storage: two modes
+
+- **`disk` (default, recommended for a single server):** documents are stored on the `eoffice_db`
+  volume at `/data/uploads`. No extra services, runs on any CPU. Start with plain `docker compose up`.
+- **`s3` (opt-in):** documents go to the bundled MinIO. Set `STORAGE_DRIVER=s3` in `.env` and start
+  with `docker compose --profile s3 up -d --build`.
+  > ⚠️ **CPU requirement:** current MinIO images require the **x86-64-v2** instruction set. On older
+  > CPUs they crash with `Fatal glibc error: CPU does not support x86-64-v2`. The compose file pins
+  > MinIO to a 2023 release that runs on older CPUs; if it still crashes, your CPU is too old for
+  > MinIO — use `disk` mode (documents are identical to the app, just stored on the local volume).
 
 ```
 Internet ──▶ web (Caddy, 443/80, auto-TLS)
@@ -82,15 +93,17 @@ git pull
 docker compose up -d --build      # migrations run automatically on api start
 ```
 
-**Backups** (do both together — DB references object keys):
+**Backups.** In `disk` mode the SQLite DB **and** the documents both live on the `eoffice_db`
+volume (`/data/prod.db` + `/data/uploads`), so one archive covers everything:
 ```bash
-# SQLite
-docker compose exec api sh -c 'cp /data/prod.db /data/backup-$(date +%F).db'
-docker run --rm -v demo_eoffice_db:/d -v "$PWD":/out alpine tar czf /out/eoffice_db.tgz -C /d .
-# Documents (MinIO)
-docker run --rm -v demo_minio_data:/d -v "$PWD":/out alpine tar czf /out/minio_data.tgz -C /d .
+docker run --rm -v eoffice-demo_eoffice_db:/d -v "$PWD":/out alpine tar czf /out/eoffice_db.tgz -C /d .
 ```
-(Volume names are prefixed with the compose project name — check `docker volume ls`.)
+In `s3` mode, also back up the documents from MinIO (the DB references object keys — back up together):
+```bash
+docker run --rm -v eoffice-demo_minio_data:/d -v "$PWD":/out alpine tar czf /out/minio_data.tgz -C /d .
+```
+(Volume names are prefixed with the compose project name — run `docker volume ls` to confirm; on your
+server the prefix is `eoffice-demo_`.)
 
 **MinIO admin console:** bound to `127.0.0.1:9001` only. Reach it via an SSH tunnel:
 `ssh -L 9001:127.0.0.1:9001 user@server` → open `http://localhost:9001`.
@@ -110,10 +123,11 @@ docker compose down -v         # stop AND delete all data — destructive
 - **Database = SQLite on a volume.** Chosen for a low-traffic single-server deployment; zero
   migration risk (the app runs on it today). To scale out later, switch the Prisma provider to
   Postgres and add a `db` service — the storage/auth layers are unaffected.
-- **Documents = MinIO (S3).** The backend uses `STORAGE_DRIVER=s3`; the `StorageProvider` interface
-  (`server/src/services/storage.ts`) also has a `disk` driver used by dev + the test suite. To point
-  at AWS S3 instead of MinIO, set `S3_ENDPOINT=` (empty), real `S3_REGION`, `S3_ACCESS_KEY`,
-  `S3_SECRET_KEY`, `S3_FORCE_PATH_STYLE=false`, and drop the `minio`/`createbuckets` services.
+- **Documents = local disk by default** (`STORAGE_DRIVER=disk`), on the `eoffice_db` volume. The
+  `StorageProvider` interface (`server/src/services/storage.ts`) also has an `s3` driver (opt-in via
+  the `s3` profile). To point at **AWS S3** instead of the bundled MinIO, set `STORAGE_DRIVER=s3`,
+  `S3_ENDPOINT=` (empty), real `S3_REGION`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`, `S3_FORCE_PATH_STYLE=false`,
+  and don't start the `minio`/`createbuckets` services.
 - **TLS via Caddy** with automatic Let's Encrypt certificates; renewals are automatic. For plain
   HTTP (behind an existing proxy / internal), set `SITE_ADDRESS=:80`.
 - **Uploads never touch the web tier** — documents are streamed by the API from object storage,
