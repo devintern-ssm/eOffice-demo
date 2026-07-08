@@ -9,14 +9,33 @@ function esc(s: unknown): string {
  * side = 'noting' | 'correspondence'. Includes header/footer (file no / period / UN),
  * a confidential watermark, and the approval-summary table.
  */
-export async function renderPrint(fileId: string, side: 'noting' | 'correspondence'): Promise<string> {
+export interface PrintOptions {
+  fromNote?: number;
+  toNote?: number;
+  last?: boolean; // print only the last note
+}
+
+export async function renderPrint(fileId: string, side: 'noting' | 'correspondence', opts: PrintOptions = {}): Promise<string> {
   const f = await getFileDetail(fileId);
   const printedOn = new Date().toLocaleString();
   const sideTitle = side === 'noting' ? 'NOTING SIDE' : 'CORRESPONDENCE SIDE';
 
   const period = [f.startPeriod ? new Date(f.startPeriod).toLocaleDateString() : '—', f.endPeriod ? new Date(f.endPeriod).toLocaleDateString() : 'open'].join(' → ');
 
-  const notesHtml = (f.notes || []).map((n: any) => `
+  // Note-number range selection (A6): full, last note, or a custom From–To range.
+  let printNotes = (f.notes || []) as any[];
+  let rangeLabel = 'All notes';
+  if (opts.last && printNotes.length) {
+    printNotes = [printNotes[printNotes.length - 1]];
+    rangeLabel = `Last note (Note ${printNotes[0].noteNumber})`;
+  } else if (opts.fromNote != null || opts.toNote != null) {
+    const from = opts.fromNote ?? 1;
+    const to = opts.toNote ?? Number.MAX_SAFE_INTEGER;
+    printNotes = printNotes.filter((n) => n.noteNumber >= from && n.noteNumber <= to);
+    rangeLabel = `Notes ${from}–${opts.toNote ?? '…'}`;
+  }
+
+  const notesHtml = printNotes.map((n: any) => `
     <div class="note">
       <div class="note-head"><strong>Note ${esc(n.noteNumber)}</strong> <span class="muted">${esc(new Date(n.date).toLocaleString())}</span></div>
       <div class="note-body">${esc(n.content).replace(/\n/g, '<br/>')}</div>
@@ -42,7 +61,7 @@ export async function renderPrint(fileId: string, side: 'noting' | 'corresponden
     </tr>`).join('');
 
   const body = side === 'noting'
-    ? `<h2>${sideTitle}</h2>${notesHtml || '<p class="muted">No notes.</p>'}`
+    ? `<h2>${sideTitle} <span class="muted" style="font-size:12px;font-weight:400">(${esc(rangeLabel)})</span></h2>${notesHtml || '<p class="muted">No notes in this range.</p>'}`
     : `<h2>${sideTitle}</h2><table class="grid"><thead><tr><th>No.</th><th>Type</th><th>Title</th><th>Inward Date</th><th>Inward No.</th><th>Pages</th></tr></thead><tbody>${corrHtml || '<tr><td colspan="6" class="muted">No correspondence.</td></tr>'}</tbody></table>`;
 
   return `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(f.fileNumber)} — ${sideTitle}</title>

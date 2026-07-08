@@ -10,7 +10,6 @@ import { removeStep } from '../api/workflow'
 import { routeToDept, returnToMaker, transferFile, closeFile } from '../api/lifecycle'
 import { uploadMdApproval, addNoteComment } from '../api/approvals'
 import { submitNote, updateNote } from '../api/notes'
-import { openPrint } from '../api/print'
 import { listUsers } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
 import { useDepartmentNames } from '../hooks/useDepartments'
@@ -21,6 +20,7 @@ import AddCorrespondenceModal from '../components/AddCorrespondenceModal'
 import ForwardFileModal from '../components/ForwardFileModal'
 import ReviewModal from '../components/ReviewModal'
 import AssignRolesModal from '../components/AssignRolesModal'
+import PrintModal from '../components/PrintModal'
 import './FileDetail.css'
 
 const FileDetail = () => {
@@ -35,6 +35,7 @@ const FileDetail = () => {
   const [showForwardModal, setShowForwardModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
+  const [showPrintModal, setShowPrintModal] = useState(false)
   const [activeAction, setActiveAction] = useState(null) // 'route' | 'return' | 'transfer' | 'close' | 'md'
   const [userOptions, setUserOptions] = useState([])
   const [maximized, setMaximized] = useState(null) // null | 'noting' | 'correspondence'
@@ -310,8 +311,7 @@ const FileDetail = () => {
               <button className="action-btn" onClick={() => setShowForwardModal(true)}><FiSend /> Forward File</button>
               <button className="action-btn" onClick={() => setShowAssignModal(true)}><FiUserCheck /> Assign Roles</button>
               <button className="action-btn" onClick={() => setShowReviewModal(true)}><FiFile /> Review &amp; Approve</button>
-              <button className="action-btn" onClick={() => openPrint(file.id, 'noting')}><FiPrinter /> Print Noting</button>
-              <button className="action-btn" onClick={() => openPrint(file.id, 'correspondence')}><FiPrinter /> Print Correspondence</button>
+              <button className="action-btn" onClick={() => setShowPrintModal(true)}><FiPrinter /> Print…</button>
               {file.status === 'UNDER_REVIEW' && <button className="action-btn" onClick={() => openAction('md')}><FiFile /> MD Offline Approval</button>}
               {file.status === 'APPROVED' && <button className="action-btn" onClick={() => openAction('route')}><FiSend /> Route to Department</button>}
               {file.status === 'ROUTED' && <button className="action-btn" onClick={() => openAction('return')}><FiSend /> Return to Maker</button>}
@@ -510,6 +510,7 @@ const FileDetail = () => {
       {showForwardModal && <ForwardFileModal file={file} onClose={() => setShowForwardModal(false)} onSaved={refresh} />}
       {showReviewModal && <ReviewModal file={file} onClose={() => setShowReviewModal(false)} onSaved={refresh} />}
       {showAssignModal && <AssignRolesModal file={file} onClose={() => setShowAssignModal(false)} onSaved={(f) => (f ? setFile(f) : refresh())} />}
+      {showPrintModal && <PrintModal file={file} onClose={() => setShowPrintModal(false)} />}
       {activeAction === 'route' && (
         <ActionModal
           title="Route to Actionable Department" submitLabel="Route"
