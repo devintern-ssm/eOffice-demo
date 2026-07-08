@@ -17,8 +17,9 @@ export const filesRouter = Router();
 filesRouter.use(authenticate);
 
 const createSchema = z.object({
-  subject: z.string().min(1),
-  section: z.string().min(1), // any admin-managed department (observation #1)
+  // .trim() before .min(1) so a whitespace-only subject/section is rejected, not stored blank (QA BUG-1).
+  subject: z.string().trim().min(1),
+  section: z.string().trim().min(1), // any admin-managed department (observation #1)
   confidential: z.boolean().optional(),
   priority: z.enum(['Normal', 'High', 'Urgent']).optional(),
   customFileNumber: z.string().optional(),

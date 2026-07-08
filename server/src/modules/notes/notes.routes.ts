@@ -7,7 +7,8 @@ import { addNote, submitNote, updateNote } from './notes.service.js';
 export const notesRouter = Router({ mergeParams: true });
 
 const addNoteSchema = z.object({
-  content: z.string().min(1),
+  // .trim() before .min(1) so a whitespace-only note body is rejected (QA BUG-1).
+  content: z.string().trim().min(1),
   isDraft: z.boolean().optional(),
   isSuoMoto: z.boolean().optional(),
   references: z
