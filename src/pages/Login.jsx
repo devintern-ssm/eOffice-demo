@@ -1,13 +1,14 @@
 import React, { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 
+const DEMO_PWD = 'Admin@123'
 const DEMO = [
-  { label: 'Rajesh · Maker', email: 'rajesh.kumar@example.com' },
-  { label: 'Priya · Checker', email: 'priya.sharma@example.com' },
-  { label: 'Amit · Approver', email: 'amit.patel@example.com' },
-  { label: 'MD Rao · MD', email: 'md@example.com' },
-  { label: 'Sneha · Accounts Maker', email: 'sneha.reddy@example.com' },
-  { label: 'Admin', email: 'admin@example.com' },
+  { label: 'Rutuja · Maker', email: 'rutuja@demo.com' },
+  { label: 'Rasika · Checker', email: 'rasika@demo.com' },
+  { label: 'Ravi · Approver', email: 'ravi@demo.com' },
+  { label: 'MD', email: 'md@demo.com' },
+  { label: 'Suhas · Accounts', email: 'suhas@demo.com' },
+  { label: 'Admin', email: 'admin@demo.com' },
 ]
 
 const inp = { width: '100%', padding: '9px 10px', border: '1px solid #cbd5e0', borderRadius: 8, margin: '4px 0 12px' }
@@ -17,7 +18,7 @@ const chip = { fontSize: 12, padding: '6px 8px', border: '1px solid #cbd5e0', bo
 export default function Login() {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('password123')
+  const [password, setPassword] = useState(DEMO_PWD)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -40,10 +41,10 @@ export default function Login() {
           <button type="submit" disabled={busy} style={btn}>{busy ? 'Signing in…' : 'Sign in'}</button>
         </form>
         <div style={{ marginTop: 16, borderTop: '1px solid #edf2f7', paddingTop: 12 }}>
-          <div style={{ fontSize: 12, color: '#718096', marginBottom: 6 }}>Quick login (demo — password <code>password123</code>)</div>
+          <div style={{ fontSize: 12, color: '#718096', marginBottom: 6 }}>Quick login (demo — password <code>{DEMO_PWD}</code>)</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {DEMO.map((d) => (
-              <button key={d.email} type="button" onClick={() => doLogin(d.email, 'password123')} style={chip}>{d.label}</button>
+              <button key={d.email} type="button" onClick={() => doLogin(d.email, DEMO_PWD)} style={chip}>{d.label}</button>
             ))}
           </div>
         </div>

@@ -2,6 +2,7 @@ import { prisma } from '../../prisma.js';
 import { ApiError } from '../../utils/http.js';
 import type { AuthUser } from '../../middleware/auth.js';
 import { storage } from '../../services/storage.js';
+import { countPdfPages } from '../../services/pdf.js';
 import { getFileDetail } from '../files/files.service.js';
 import { notifyData } from '../../services/notify.js';
 
@@ -24,11 +25,14 @@ export async function uploadMdApproval(fileId: string, input: { remarks?: string
   }
 
   const storageKey = await storage.save(fileBuffer, 'pdf');
+  // Page-count the scanned approval so it takes its place in the continuous correspondence
+  // page numbering (mail point 7: "numbering should be added for the said page").
+  const pageCount = (await countPdfPages(fileBuffer)) ?? 1;
 
   await prisma.$transaction(async (tx) => {
     const count = await tx.correspondence.count({ where: { fileId } });
     await tx.correspondence.create({
-      data: { fileId, number: `C/${count + 1}`, type: 'MD Approval (scanned)', title: input.remarks || 'Offline MD approval', storageKey, mime: 'application/pdf', uploadedById: user.id, uploadedByName: user.name },
+      data: { fileId, number: `C/${count + 1}`, type: 'MD Approval (scanned)', title: input.remarks || 'Offline MD approval', storageKey, mime: 'application/pdf', pageCount, originalName: 'MD-signed-approval.pdf', uploadedById: user.id, uploadedByName: user.name },
     });
     await tx.workflowStep.update({
       where: { id: current.id },
