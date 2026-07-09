@@ -98,8 +98,26 @@ export async function assertCanAccessFile(fileId: string, user: AuthUser) {
   if (!allowed) throw ApiError.forbidden('This file is confidential');
 }
 
-/** KPI counts + recent activity for the Dashboard. */
+function mapRecent(movements: Array<{ id: string; type: string; actorName: string; remarks: string | null; createdAt: Date; fileId: string; file: { subject: string; displayNumber: string | null } | null }>) {
+  return movements.map((m) => ({
+    id: m.id, type: m.type, actorName: m.actorName, remarks: m.remarks, date: m.createdAt,
+    fileId: m.fileId, fileNumber: m.file?.displayNumber ?? '(draft)', fileSubject: m.file?.subject ?? '',
+  }));
+}
+
+/** KPI counts + recent activity for the Dashboard. Admin gets a system-wide (super-admin) view. */
 export async function getFileStats(user: AuthUser) {
+  if (user.role === 'ADMIN') {
+    const [totalFiles, underReview, approved, closed, recentMovements] = await Promise.all([
+      prisma.file.count(),
+      prisma.file.count({ where: { status: 'UNDER_REVIEW' } }),
+      prisma.file.count({ where: { status: 'APPROVED' } }),
+      prisma.file.count({ where: { status: 'CLOSED' } }),
+      prisma.movement.findMany({ orderBy: { createdAt: 'desc' }, take: 8, include: { file: { select: { id: true, subject: true, displayNumber: true } } } }),
+    ]);
+    return { isAdmin: true, stats: { totalFiles, underReview, approved, closed }, recentActivity: mapRecent(recentMovements) };
+  }
+
   const [filesCreated, pendingMyAction, awaitingApproval, inboxCount, recentMovements] =
     await Promise.all([
       prisma.file.count({ where: { createdById: user.id } }),
@@ -114,17 +132,9 @@ export async function getFileStats(user: AuthUser) {
     ]);
 
   return {
+    isAdmin: false,
     stats: { filesCreated, pendingMyAction, awaitingApproval, inboxCount },
-    recentActivity: recentMovements.map((m) => ({
-      id: m.id,
-      type: m.type,
-      actorName: m.actorName,
-      remarks: m.remarks,
-      date: m.createdAt,
-      fileId: m.fileId,
-      fileNumber: m.file?.displayNumber ?? '(draft)',
-      fileSubject: m.file?.subject ?? '',
-    })),
+    recentActivity: mapRecent(recentMovements),
   };
 }
 

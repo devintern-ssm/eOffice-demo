@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiFile, FiInbox, FiCheckCircle, FiSend, FiPlus } from 'react-icons/fi'
+import { FiFile, FiInbox, FiCheckCircle, FiSend, FiPlus, FiLayers, FiArchive } from 'react-icons/fi'
 import { getStats } from '../api/files'
+import { useAuth } from '../auth/AuthContext'
 import { prettyStatus } from '../utils/status'
 import './Dashboard.css'
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({ inboxCount: 0, filesCreated: 0, pendingMyAction: 0, awaitingApproval: 0 })
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+  const [stats, setStats] = useState({})
   const [recentActivity, setRecentActivity] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -15,28 +18,35 @@ const Dashboard = () => {
     getStats()
       .then((data) => {
         if (!active) return
-        setStats(data.stats)
-        setRecentActivity(data.recentActivity)
+        setStats(data.stats || {})
+        setRecentActivity(data.recentActivity || [])
       })
       .catch(() => {})
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [])
 
-  const cards = [
-    { label: 'In My Inbox', value: stats.inboxCount, icon: FiInbox, color: '#667eea', link: '/inbox' },
-    { label: 'Files I Created', value: stats.filesCreated, icon: FiFile, color: '#48bb78', link: '/my-files' },
-    { label: 'Pending My Approval', value: stats.pendingMyAction, icon: FiCheckCircle, color: '#ed8936', link: '/pending-approvals' },
-    { label: 'Awaiting Approval', value: stats.awaitingApproval, icon: FiSend, color: '#805ad5', link: '/sent-files' },
+  const cards = isAdmin ? [
+    { label: 'Total Files', value: stats.totalFiles ?? 0, icon: FiLayers, color: '#667eea', link: '/reports' },
+    { label: 'Under Review', value: stats.underReview ?? 0, icon: FiSend, color: '#ed8936', link: '/all-files' },
+    { label: 'Approved', value: stats.approved ?? 0, icon: FiCheckCircle, color: '#48bb78', link: '/all-files' },
+    { label: 'Closed', value: stats.closed ?? 0, icon: FiArchive, color: '#805ad5', link: '/all-files' },
+  ] : [
+    { label: 'In My Inbox', value: stats.inboxCount ?? 0, icon: FiInbox, color: '#667eea', link: '/inbox' },
+    { label: 'Files I Created', value: stats.filesCreated ?? 0, icon: FiFile, color: '#48bb78', link: '/my-files' },
+    { label: 'Pending My Approval', value: stats.pendingMyAction ?? 0, icon: FiCheckCircle, color: '#ed8936', link: '/pending-approvals' },
+    { label: 'Awaiting Approval', value: stats.awaitingApproval ?? 0, icon: FiSend, color: '#805ad5', link: '/sent-files' },
   ]
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h1>Dashboard</h1>
-        <Link to="/create-file" className="btn-primary">
-          <FiPlus /> Create New File
-        </Link>
+        <h1>{isAdmin ? 'Super Admin Dashboard' : 'Dashboard'}</h1>
+        {!isAdmin && (
+          <Link to="/create-file" className="btn-primary">
+            <FiPlus /> Create New File
+          </Link>
+        )}
       </div>
 
       <div className="stats-grid">
