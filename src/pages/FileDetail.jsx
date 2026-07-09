@@ -135,7 +135,7 @@ const FileDetail = () => {
 
   const isAdmin = user?.role === 'ADMIN' || file.contentRestricted
   const isHolder = file.currentAssignee === user?.id
-  const canAddNote = !isAdmin && isHolder && file.status !== 'CLOSED' // only the holder may add a note (#5)
+  const canAddNote = !isAdmin && file.status !== 'CLOSED' // show Add Note (backend still enforces holder-only on submit)
   const draftNotes = (file.notes || []).filter((n) => n.status === 'DRAFT')
 
   const toggleSection = (section) => setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }))

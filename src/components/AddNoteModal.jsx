@@ -207,7 +207,7 @@ const AddNoteModal = ({ file, onClose, onSaved }) => {
                       <option value="APPROVER">Approver</option>
                       <option value="CHECKER">Checker</option>
                     </select>
-                    <input type="text" value={row.mark} onChange={(e) => setPara(i, 'mark', e.target.value)} placeholder="Para (opt.)" maxLength={3} style={{ width: 80 }} />
+                    <input type="text" value={row.mark} onChange={(e) => setPara(i, 'mark', e.target.value)} placeholder="Para / note (opt.)" style={{ width: 140 }} />
                     <select value={row.approverId} onChange={(e) => setPara(i, 'approverId', e.target.value)} style={{ flex: 1 }}>
                       <option value="">Person…</option>
                       {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}

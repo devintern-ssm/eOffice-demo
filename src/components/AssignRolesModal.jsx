@@ -138,7 +138,7 @@ const AssignRolesModal = ({ file, onClose, onSaved }) => {
                   <option value="APPROVER">Approver</option>
                   <option value="CHECKER">Checker</option>
                 </select>
-                <input type="text" value={paraMark} onChange={(e) => setParaMark(e.target.value)} placeholder="Para" maxLength={3} title="Optional paragraph (A, B…)" />
+                <input type="text" value={paraMark} onChange={(e) => setParaMark(e.target.value)} placeholder="Para / note (opt.)" title="Optional paragraph or note reference" />
                 <select value={paraApproverId} onChange={(e) => setParaApproverId(e.target.value)}>
                   <option value="">Person…</option>
                   {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
