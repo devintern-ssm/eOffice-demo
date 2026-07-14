@@ -3,18 +3,22 @@
 export const ROLES = ['MAKER', 'CHECKER', 'APPROVER', 'MD', 'ADMIN'] as const;
 export type Role = (typeof ROLES)[number];
 
-export const FILE_STATUSES = [
-  'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'REVERTED', 'APPROVED', 'ROUTED', 'RETURNED', 'CLOSED',
-] as const;
+// File is a permanent binder — its only states are OPEN and (rarely) CLOSED.
+export const FILE_STATUSES = ['OPEN', 'CLOSED'] as const;
 export type FileStatus = (typeof FILE_STATUSES)[number];
 
-export const NOTE_STATUSES = ['DRAFT', 'SUBMITTED', 'CHECKED', 'APPROVED'] as const;
-export const STEP_STATUSES = ['PENDING', 'CHECKED', 'APPROVED', 'REVERTED', 'SKIPPED'] as const;
+// Each note runs its own lifecycle as it moves through its signature chain.
+export const NOTE_STATUSES = ['DRAFT', 'IN_REVIEW', 'RETURNED', 'FINALIZED'] as const;
+export type NoteStatus = (typeof NOTE_STATUSES)[number];
+
+// A signer either signs & forwards, or sends the note back to its maker.
+export const STEP_STATUSES = ['PENDING', 'SIGNED', 'RETURNED'] as const;
+// Role labels are display-only now (any signer can check+approve).
 export const STEP_ROLES = ['CHECKER', 'APPROVER', 'MD'] as const;
 
 export const MOVEMENT_TYPES = [
-  'CREATE', 'SUBMIT', 'FORWARD', 'CHECK', 'APPROVE', 'REVERT', 'RETURN',
-  'ROUTE', 'TRANSFER', 'CLOSE', 'UPLOAD', 'NOTE_ADDED', 'SIGN', 'ASSIGN',
+  'CREATE', 'OPEN_NOTE', 'SUBMIT_NOTE', 'SIGN', 'RETURN_NOTE', 'FINALIZE',
+  'HANDOVER', 'TRANSFER', 'CLOSE', 'UPLOAD', 'NOTE_ADDED', 'ASSIGN',
 ] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 

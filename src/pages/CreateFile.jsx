@@ -72,7 +72,7 @@ const CreateFile = () => {
                 onChange={handleChange}
                 placeholder="Leave blank to auto-generate"
               />
-              <small>The system auto-generates a DEPT/YEAR/SEQ number on submission (e.g. ACC/2026/001). This optional field is just a custom label.</small>
+              <small>The system assigns a DEPT/YEAR/SEQ UN number when the file is created (e.g. ACC/2026/001). This optional field is just a custom label.</small>
             </div>
 
             <div className="form-row">

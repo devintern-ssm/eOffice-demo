@@ -33,8 +33,8 @@ const Reports = () => {
   const summary = data.summary || {}
   const cards = [
     { label: 'Total Files', value: summary.totalFiles ?? 0 },
-    { label: 'Approved', value: summary.approved ?? 0 },
-    { label: 'Under Review', value: summary.underReview ?? 0 },
+    { label: 'Open Files', value: summary.openFiles ?? 0 },
+    { label: 'Notes In Review', value: summary.notesInReview ?? 0 },
     { label: 'Closed', value: summary.closed ?? 0 },
   ]
 

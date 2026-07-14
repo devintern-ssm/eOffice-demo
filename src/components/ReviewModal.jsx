@@ -1,41 +1,34 @@
 import React, { useState } from 'react'
-import { FiX, FiCheck, FiXCircle, FiArrowLeft, FiSend, FiHelpCircle } from 'react-icons/fi'
-import { actOnFile } from '../api/workflow'
+import { FiX, FiCheck, FiCornerUpLeft, FiSend } from 'react-icons/fi'
+import { signNote, returnNote } from '../api/workflow'
 import './Modal.css'
 
-const ACTIONS = [
-  { key: 'check', label: 'Check', icon: FiCheck, cls: '' },
-  { key: 'approve', label: 'Approve', icon: FiCheck, cls: '' },
-  { key: 'revert', label: 'Revert', icon: FiArrowLeft, cls: 'reject' },
-  { key: 'reject', label: 'Reject', icon: FiXCircle, cls: 'reject' },
-  { key: 'clarify', label: 'Request Clarification', icon: FiHelpCircle, cls: '' },
-]
-
+/**
+ * Act on the in-flight note as its current signer — two actions only:
+ *  • Sign & forward (advance the chain; the last signer finalizes the note)
+ *  • Send back (return the note to its maker for correction)
+ */
 const ReviewModal = ({ file, onClose, onSaved }) => {
-  const [action, setAction] = useState('')
+  const [action, setAction] = useState('sign') // 'sign' | 'return'
   const [remarks, setRemarks] = useState('')
   const [dept, setDept] = useState('')
   const [signatureName, setSignatureName] = useState('')
-  const [paragraphs, setParagraphs] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const latestNote = file.notes && file.notes.length ? file.notes[file.notes.length - 1] : null
-  const currentStep = (file.steps || []).find((s) => s.status === 'PENDING')
-  const paraList = latestNote ? latestNote.content.split('\n\n').map((p) => p.trim()).filter(Boolean) : []
-  const showParagraphs = action === 'approve' || action === 'check'
-  const toggleParagraph = (mark) => setParagraphs((prev) => (prev.includes(mark) ? prev.filter((m) => m !== mark) : [...prev, mark]))
-
-  const requiresRemarks = ['revert', 'reject', 'clarify'].includes(action)
+  const activeNote = (file.notes || []).find((n) => n.status === 'IN_REVIEW')
+  const steps = file.steps || []
+  const currentStep = steps.find((s) => s.status === 'PENDING')
+  const isLast = currentStep && !steps.some((s) => s.stepOrder > currentStep.stepOrder && s.status === 'PENDING')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!action) { setError('Select an action'); return }
-    if (requiresRemarks && !remarks.trim()) { setError('Please add a remark explaining the revert/rejection'); return }
+    if (action === 'return' && !remarks.trim()) { setError('Please add a remark explaining why the note is sent back'); return }
     setSubmitting(true)
     setError(null)
     try {
-      await actOnFile(file.id, { action, remarks, dept, signatureName, paragraphs: showParagraphs ? paragraphs : undefined })
+      if (action === 'sign') await signNote(file.id, { remarks, dept, signatureName })
+      else await returnNote(file.id, { remarks })
       onSaved && onSaved()
       onClose()
     } catch (err) {
@@ -48,7 +41,7 @@ const ReviewModal = ({ file, onClose, onSaved }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Review &amp; Approve File</h2>
+          <h2>Sign the Note</h2>
           <button className="modal-close" onClick={onClose}><FiX /></button>
         </div>
 
@@ -58,85 +51,66 @@ const ReviewModal = ({ file, onClose, onSaved }) => {
             <div className="info-item"><strong>Subject:</strong> {file.subject}</div>
             <div className="info-item">
               <strong>Your step:</strong>{' '}
-              {currentStep ? `Step ${currentStep.stepOrder} — ${currentStep.assigneeName} (${currentStep.roleAtStep})` : 'No pending step'}
+              {currentStep
+                ? `${currentStep.signerName} (${currentStep.roleLabel})${isLast ? ' — final signer, signing finalizes this note' : ''}`
+                : 'This note is not awaiting your signature'}
             </div>
           </div>
 
-          {latestNote && (
+          {activeNote && (
             <div className="review-note-preview">
-              <h3>Latest note (Note {latestNote.noteNumber})</h3>
-              <div className="note-preview">{latestNote.content}</div>
+              <h3>Note {activeNote.noteNumber}</h3>
+              <div className="note-preview">{activeNote.content}</div>
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Select Action *</label>
+              <label>Action *</label>
               <div className="action-buttons">
-                {ACTIONS.map((a) => {
-                  const Icon = a.icon
-                  return (
-                    <button
-                      type="button"
-                      key={a.key}
-                      className={`action-btn ${a.cls} ${action === a.key ? 'active' : ''}`}
-                      onClick={() => setAction(a.key)}
-                    >
-                      <Icon /> {a.label}
-                    </button>
-                  )
-                })}
+                <button type="button" className={`action-btn ${action === 'sign' ? 'active' : ''}`} onClick={() => setAction('sign')}>
+                  <FiCheck /> {isLast ? 'Sign & Finalize' : 'Sign & Forward'}
+                </button>
+                <button type="button" className={`action-btn reject ${action === 'return' ? 'active' : ''}`} onClick={() => setAction('return')}>
+                  <FiCornerUpLeft /> Send Back
+                </button>
               </div>
-              <small>Check (forward to next) · Approve (advance / final approve) · Revert / Reject / Clarify (back to originator)</small>
+              <small>
+                {action === 'sign'
+                  ? (isLast ? 'You are the last signer — signing finalizes the note and returns the file to its maker.' : 'Signs your step and forwards the file to the next signer.')
+                  : 'Returns the note to its maker for correction.'}
+              </small>
             </div>
 
-            {showParagraphs && paraList.length > 1 && (
-              <div className="form-group">
-                <label>Approve specific paragraphs (optional)</label>
-                <div className="paragraphs-list">
-                  {paraList.map((para, index) => {
-                    const mark = String.fromCharCode(65 + index)
-                    return (
-                      <label key={index} className="paragraph-item" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0' }}>
-                        <input type="checkbox" checked={paragraphs.includes(mark)} onChange={() => toggleParagraph(mark)} />
-                        <span><strong>{mark}:</strong> {para.slice(0, 90)}{para.length > 90 ? '…' : ''}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-                <small>Leave unchecked to approve the whole note.</small>
-              </div>
-            )}
-
             <div className="form-group">
-              <label>Remarks / Comments {requiresRemarks ? '*' : ''}</label>
+              <label>Remarks {action === 'return' ? '*' : ''}</label>
               <textarea
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Your remarks are recorded on the noting side and stamped with your name, department and time."
-                rows={5}
+                placeholder="Recorded against your signature on this note and stamped with your name, department and time."
+                rows={4}
               />
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Department</label>
-                <input type="text" value={dept} onChange={(e) => setDept(e.target.value)} placeholder="Defaults to your section" />
-                <small>Recorded with the action (date &amp; time stamped automatically).</small>
+            {action === 'sign' && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Department</label>
+                  <input type="text" value={dept} onChange={(e) => setDept(e.target.value)} placeholder="Defaults to your section" />
+                </div>
+                <div className="form-group">
+                  <label>Signature (typed)</label>
+                  <input type="text" value={signatureName} onChange={(e) => setSignatureName(e.target.value)} placeholder="Defaults to your name" />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Signature (typed)</label>
-                <input type="text" value={signatureName} onChange={(e) => setSignatureName(e.target.value)} placeholder="Defaults to your name" />
-                <small>Typed-name signature (Phase 1). Left blank = your account name.</small>
-              </div>
-            </div>
+            )}
 
             {error && <div className="form-error" style={{ color: '#e53e3e', marginBottom: 12 }}>{error}</div>}
 
             <div className="modal-actions">
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={submitting}>
-                <FiSend /> {submitting ? 'Submitting…' : 'Submit Review'}
+              <button type="submit" className="btn-primary" disabled={submitting || !currentStep}>
+                <FiSend /> {submitting ? 'Submitting…' : action === 'sign' ? (isLast ? 'Sign & Finalize' : 'Sign & Forward') : 'Send Back'}
               </button>
             </div>
           </form>

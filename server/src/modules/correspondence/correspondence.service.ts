@@ -31,7 +31,8 @@ export async function addCorrespondence(
   if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
 
   const count = await prisma.correspondence.count({ where: { fileId } });
-  const number = `C/${count + 1}`;
+  const number = `C/${count + 1}`; // internal attachment index; display uses derived C-range
+  const seq = count;               // attachment order for page-level C-numbering
 
   let storageKey: string | null = null;
   let mime = 'text/reference';
@@ -58,6 +59,7 @@ export async function addCorrespondence(
       data: {
         fileId,
         number,
+        seq,
         type: input.type,
         title: input.title,
         inwardDate: input.inwardDate ? new Date(input.inwardDate) : null,

@@ -1,7 +1,11 @@
 # e-Office — DEMO RUNBOOK (follow blindly, in order)
 
-> Read each step, do exactly what **DO** says, confirm **SEE**, optionally read **SAY** aloud.
-> Every password is **`Admin@123`**. The login screen has one-click buttons — you never type a password.
+> **NOTE-CENTRIC model.** A **file is a permanent binder** (UN number) that stays **OPEN**.
+> The unit of work is the **NOTE**: each note has its own maker and its own **signature chain**;
+> a signer either **Signs & Forwards** or **Sends Back**; the last signer **finalizes** the note
+> and the file returns to that note's maker. Notes are done **one at a time**.
+>
+> Every password is **`Admin@123`**. The login screen has one-click buttons — never type a password.
 
 ---
 
@@ -27,157 +31,136 @@ SEE: a `localhost:3000` line. Leave it running.
 cd server
 npm run seed:demo
 ```
-SEE: `Seeded 6 users … ADMIN/2026/001 … ADMIN/2026/002 … ADMIN/2026/003 … (draft)`.
+SEE: `Seeded 6 users … ADMIN/2026/001 … ACC/2026/001 …` (5 binders).
 
-**0.5** Open **Chrome** → go to **http://localhost:3000** → press **F11** (full screen) and **Ctrl +** once or twice so text is large. Make the window **wide** (the file screen shows two panes side-by-side).
+**0.5** Open **Chrome** → **http://localhost:3000** → **F11** (full screen), **Ctrl +** once or twice, make the window **wide** (the file screen is two panes side-by-side).
 
-**0.6** Confirm the sample files exist (you'll upload these live):
-`D:\Sahasrara\eOffice\demo\demo-samples\1_quotation.pdf`, `2_technical_specs.pdf`, `3_signed_approval.pdf`.
+**0.6** Sample PDFs for the live upload: `D:\Sahasrara\eOffice\demo\demo-samples\1_quotation.pdf`, `2_technical_specs.pdf`, `3_signed_approval.pdf`.
 
-✅ You are ready. Log out if you're logged in (top-right exit icon) so you start at the login screen.
-
----
-
-## PART 1 — OPENING LINE (10 seconds)
-
-**SAY:** *"This is the Digital Office — the paper Noting–Correspondence file, made digital. A file has two sides: the Noting side where officers write and sign remarks, and the Correspondence side where documents are attached. Files move up an approval chain — Maker, Checker, Approver, MD — and everything is tracked. Let me create one live."*
+✅ Log out if logged in (top-right) so you start at the login screen.
 
 ---
 
-## PART 2 — THE LIVE STORY: create a file and get it approved (the main demo)
+## PART 1 — OPENING LINE (15 seconds)
+
+**SAY:** *"This is the Digital Office — the paper Noting–Correspondence file, made digital. A file is a permanent binder identified by a UN number; it normally stays open for years. The real unit of work is the **note**: someone raises a note, the file travels to each officer to sign it, and when the last officer signs, that note is final and the file comes back. Correspondence is page-numbered — every page is C1, C2, C3… Let me raise a note live."*
+
+---
+
+## PART 2 — THE LIVE STORY: raise a note and get it signed (the main demo)
 
 ### As the MAKER (Rutuja)
 
-**2.1 DO:** On the login screen, click **`Rutuja · Maker`**.
-**SEE:** the **Dashboard** with KPI cards.
+**2.1 DO:** Login → **`Rutuja · Maker`** → **SEE** the Dashboard.
 
-**2.2 DO:** Click **Create New File** (top-right).
+**2.2 DO:** Click **Create New File** → **Section** = `Administration`; **Subject** = `Procurement of 20 Laptops for the Finance Department` → **Create File**.
+**SEE:** the binder opens with a **UN number already assigned** (e.g. `ADMIN/2026/006`), **Status OPEN**, **Current Holder: Rutuja**.
+**SAY:** *"The binder gets its UN number the moment it's opened."*
 
-**2.3 DO:** Fill the form:
-- **Section/Department:** choose **Administration**
-- **Subject:** type `Procurement of 20 Laptops for the Finance Department`
-- **Initial Note:** type `Proposal to procure 20 laptops for Finance. The vendor quotation is placed at C/1. Put up for approval.`
+**2.3 DO:** Click **Add Correspondence** → Type `Quotation`, Title `Vendor quotation — laptops`, upload **`1_quotation.pdf`** → **Upload**.
+**SEE:** it appears as **C1–C3** on the correspondence side.
+**2.4 (optional) DO:** Add Correspondence again → upload **`2_technical_specs.pdf`**.
+**SEE:** it appears as **C4–C5** — *page numbers continue across attachments.*
+**SAY:** *"Every page gets its own C-number, running continuously across documents."*
 
-**2.4 DO:** Click **Create File**.
-**SEE:** the file opens. Left = file info; right = **NOTING SIDE** (your note is "Note 1") and **CORRESPONDENCE SIDE** (empty). Status = **DRAFT**.
-**SAY:** *"It opens as a draft. No file number yet — that's assigned when I submit it."*
+**2.5 DO:** Click **Add Note** → in **Note Content** type:
+`Proposal to procure 20 laptops for Finance. The quotation is at C1. Recommended for approval.`
+**2.6 DO:** In **Signature chain**, tick **Rasika R Sawant** (role shows **Checker**) then **Ravindra Pawar** (role **Approver**).
+**SEE:** a numbered **Chain order** appears: `1. Rasika (Checker) → 2. Ravindra (Approver)`.
+**2.7 DO:** Click **Submit for Signature**.
+**SEE:** Status stays **OPEN**; **Active Note: Note 1 · In Review**; **Current Holder: Rasika**; the left **Signature Chain — Note 1** panel shows Rasika current.
+**SAY:** *"The note is now travelling the signature chain. The file itself stays open."*
 
-**2.5 DO:** Click **Add Correspondence** (left side buttons).
-**2.6 DO:** In the modal: **Document Type** = `Quotation`; **Title** = `Vendor quotation — laptops`; leave **File Upload** selected; click the upload box → pick **`D:\Sahasrara\eOffice\demo\demo-samples\1_quotation.pdf`**.
-**2.7 DO:** Click **Upload Correspondence**.
-**SEE:** **C/1** appears on the right, labelled **p. 1–3 (3 pg)**.
-
-**2.8 (optional, to show continuous paging) DO:** Click **Add Correspondence** again → Type `Technical Specs`, Title `Specifications`, upload **`2_technical_specs.pdf`** → Upload.
-**SEE:** **C/2** appears as **p. 4–5** — *the page numbers continue from the previous PDF.*
-**SAY:** *"Notice the page numbering runs continuously across attachments — page 4 follows page 3."*
-
-**2.9 DO:** Click **Add Note**.
-**2.10 DO:** In **Note Content**, type: `The quotation at C/1 is the lowest compliant offer. Recommended for approval.`
-**2.11 DO:** Scroll down to **Assign reviewers (optional)**. In the **Reviewer chain** list, tick **Rasika R Sawant** (a role box appears showing **CHECKER** — leave it) and tick **Ravindra Pawar** (shows **APPROVER** — leave it).
-**2.12 DO:** Click **Submit Note**.
-**SEE:** the file now has a **number** (e.g. **ADMIN/2026/004**), status = **UNDER_REVIEW**, and the **Approval Flow** panel (left) shows Rasika as the current step.
-**SAY:** *"On submit it gets its number, and it's now with the Checker."*
-
-**2.13 DO:** In the note text, click the blue **C/1** link.
+**2.8 DO:** In the note text, click the blue **C1** link.
 **SEE:** the quotation PDF opens **inline** on the correspondence side.
-**SAY:** *"Clicking a reference opens that document right here."*
 
 ### As the CHECKER (Rasika)
 
-**2.14 DO:** Click the **exit icon** (top-right) to log out → click **`Rasika · Checker`**.
-**2.15 DO:** In the left menu click **Pending Approvals**.
-**SEE:** a list including **"Procurement of 20 Laptops for Finance"** (there may be other rows too — ignore them).
-**2.16 DO:** On the **"…20 Laptops…"** row, click **Review File**.
-**2.17 DO:** Click **Review & Approve**.
-**SEE:** the modal shows *"Your step: Step 1 — Rasika R Sawant (CHECKER)"*.
-**2.18 DO:** Click the **Check** button → in the remarks box type `Verified. Budget available. Recommended.` → click **Submit Review**.
-**SEE:** the file moves to **Ravindra Pawar**; Approval Flow shows Rasika **CHECKED**.
+**2.9 DO:** Log out → **`Rasika · Checker`** → left menu **Pending Approvals** → on the *"…20 Laptops…"* row click **Review File**.
+**2.10 DO:** Click **Sign / Send Back**.
+**SEE:** a dialog — your step is *"Rasika R Sawant (Checker)"*; the two actions are **Sign & Forward** and **Send Back**.
+**2.11 DO:** Leave **Sign & Forward** selected, type remark `Checked. Budget available. Recommended.` → click **Sign & Forward**.
+**SEE:** **Current Holder → Ravindra**; the chain shows Rasika **Signed ✍** with her remark.
+**SAY:** *"She signed and it moved to the next officer. One person can be both checker and approver — it's just a chain."*
 
-### As the APPROVER (Ravi)
+### As the APPROVER (Ravi) — the last signer
 
-**2.19 DO:** Log out → click **`Ravi · Approver`** → **Pending Approvals** → on the **"…20 Laptops…"** row click **Review File**.
-**2.20 DO:** Click **Review & Approve** → click **Approve** → remarks `Approved.` → **Submit Review**.
-**SEE:** status becomes **APPROVED**; Approval Flow shows both steps signed with names and dates.
-**SAY:** *"Fully approved, with a signed trail — who signed, when, and their remarks."*
-
-### Print it
-
-**2.21 DO:** Click **Print…** → choose **Noting** → **All notes** → **Open Print View**.
-**SEE:** a clean printable page opens in a new tab with a header, the notes, and an **Approval Summary** table.
-**SAY:** *"This is the printable noting sheet with the approval summary. Noting and Correspondence print as two separate PDFs."* Close the tab.
+**2.12 DO:** Log out → **`Ravi · Approver`** → **Pending Approvals** → **Review File** → **Sign / Send Back**.
+**SEE:** the button reads **Sign & Finalize** (he's the last signer).
+**2.13 DO:** Remark `Approved.` → **Sign & Finalize**.
+**SEE:** **Note 1 → FINALIZED**; **Active Note** clears; the file returns to its maker (**Current Holder: Rutuja**). The note shows both signatories with names, dates and remarks.
+**SAY:** *"The last signature finalizes the note, and the file comes back to the person who raised it — ready for the next note. The file never had to 'close'."*
 
 ✅ **That's the core loop. Everything below is "and it also does…".**
 
 ---
 
-## PART 3 — SHOW A COMPLETE, REAL FILE (30 seconds)
+## PART 3 — SHOW A COMPLETE, REAL BINDER (30 seconds)
 
-**3.1 DO:** In the top **search box**, type `Procurement of 50` → click the result **ADMIN/2026/001**.
-**SEE:** a large file — many notes on the left, **C/1…C/8** on the right.
+**3.1 DO:** Top **search box** → `Procurement of 50` → open **ADMIN/2026/001**.
+**SEE:** a large binder — **3 notes**, each **FINALIZED** with its **own signature chain**, and **8 correspondence groups** (C1–C3 … C24–C26, 26 continuously-numbered pages).
 **3.2 SAY, pointing:**
-- *"This is a fully-processed procurement file — 9 notes, 8 attachments, 26 continuously-numbered pages."*
-- Point at **Approval Flow** (left): *"Checker, Deputy MD, and the MD — the MD approved via a scanned, manually-signed copy, which is stored as C/7 and page-numbered."*
-- Point at **File Movement**: *"Full history — every movement, including it going to Accounts for the purchase order and coming back."*
-**3.3 DO:** Click **Open** on any **C/n** card → the PDF shows inline.
+- *"Note 1 was checked by the Manager and approved by the Deputy MD — see the two signatures under the note."*
+- *"Note 2 went to the Managing Director, who signed **offline**; the scanned signed copy is filed as **C23** and takes its place in the page numbering."*
+- *"Note 3 was raised in **Accounts** by a different officer — the file was **handed over** to Accounts to issue the purchase order (C24–C26), then handed back. Same binder, different departments, and it's still **OPEN**."*
+**3.3 DO:** On any correspondence group click **Show N pages** → click a page chip (e.g. **C4**) → the PDF opens to that page.
 
 ---
 
-## PART 4 — QUICK FEATURE HITS (pick any, ~15 sec each)
+## PART 4 — THE STANDING FILE (never closes) — 20 seconds
 
-**4.1 Drafts.** DO: (as Rutuja — log out, `Rutuja · Maker`) → left menu **Drafts** → SEE the "Office Stationery Indent" draft. SAY: *"Drafts are private to the author until submitted."*
-
-**4.2 Notifications.** DO: click the **bell** (top-right). SEE: alerts (e.g. "your file was approved"). SAY: *"Everyone is notified when a file reaches them or is approved."*
-
-**4.3 Search.** DO: top search box → type `AMC` → click the result. SAY: *"Instant search by number or subject."*
-
-**4.4 Confidential.** SAY: *"File ADMIN/2026/003 is marked confidential."* DO: log out → `Suhas · Accounts` → left menu **All Files**. SEE: **003 is NOT listed** for him. SAY: *"Confidential files are visible only to the people involved."*
+**4.1 DO:** Search `Bills Register` → open **ACC/2026/001** (log in as **`Suhas · Accounts`** first if prompted).
+**SEE:** an Accounts binder with **Note 1 finalized** (a bill passed for payment) and **Note 2 in review** — a live, ever-growing register.
+**SAY:** *"An accounts bills file like this never closes — officers keep adding notes and correspondence to the same binder indefinitely. That's exactly the standing-file case."*
 
 ---
 
-## PART 5 — SUPER ADMIN (the second dashboard)
+## PART 5 — QUICK FEATURE HITS (pick any, ~15 sec each)
 
-**5.1 DO:** Log out → click **`Admin`**.
-**SEE:** **Super Admin Dashboard** with system-wide counts (Total Files / Under Review / Approved / Closed), and a shorter menu.
-**SAY:** *"The Super Admin is oversight-only — it manages users and departments and sees reports, but cannot open the file contents."*
-
-**5.2 DO:** Left menu **Users**.
-**SEE:** the **Departments** panel (chips + Add Department) and the user table.
-**DO (optional):** type a name like `Human Resources` and code `HR` → **Add Department**. SAY: *"New departments can be added here."*
-
-**5.3 DO:** Left menu **Reports & Logs** → the **All Files** tab.
-**SEE:** every file with **Submitted By** and **Department** columns.
-**DO:** click **Export CSV**. SAY: *"The all-files report with Submitted-By and Department — exactly as requested — and it exports to CSV."*
-
-**5.4 DO (proves the lock):** click any file number in the report → SEE a "restricted / not available to the admin" message. SAY: *"The admin can see the register but not the noting content."*
+**5.1 Drafts.** As Rutuja → left menu **Drafts** → open **ADMIN/2026/004** → SEE the draft note with **Put up for signature**. SAY: *"Draft notes are private to their maker until put up."*
+**5.2 Send back.** In a live in-review note, choose **Send Back** instead of Sign → the note returns to its maker as **RETURNED**, who can **Edit & Resubmit**.
+**5.3 Notifications.** Click the **bell** — officers are alerted when a note reaches them or is finalized.
+**5.4 Confidential.** **ADMIN/2026/003** is confidential. Log in as **`Suhas · Accounts`** → **All Files** → SEE it is **not listed** for him.
+**5.5 Print.** On any binder → **Print…** → **Noting** → each note prints with **its own signatory block**; Noting and Correspondence print as two separate PDFs.
 
 ---
 
-## PART 6 — IF THEY ASK "did you do point X from our mail?" (answer table)
+## PART 6 — SUPER ADMIN (the second dashboard)
+
+**6.1 DO:** Log out → **`Admin`**.
+**SEE:** **Super Admin Dashboard** — system counts (Total Files / Open / Notes In Review / Closed) and a shorter menu.
+**SAY:** *"The Super Admin is oversight-only — users, departments and reports, but not the file contents."*
+**6.2 DO:** **Reports & Logs** → **All Files** tab → **Submitted By** + **Department** columns → **Export CSV**.
+**6.3 DO (proves the lock):** click any file number → SEE a *restricted* message. SAY: *"The register, not the noting content."*
+
+---
+
+## PART 7 — ANSWER TABLE (if they ask "did you do X?")
 
 | They ask about… | You say / show |
 |---|---|
-| Super-admin report with Submitted-By + Department | ✅ Part 5.3 (done — with CSV) |
-| More file formats than PDF | ✅ "Any format — Word, Excel, images — uploads." |
-| Continuous page numbering | ✅ Part 2.8 / Part 3 (C/1 p.1–3, C/2 p.4–5…) |
-| Draft notes shown | ✅ Part 4.1 |
-| Two dashboards (Super Admin + User) | ✅ Part 5.1 vs Part 2.1 |
-| Two separate PDFs (Noting / Correspondence) | ✅ Part 2.21 — print each side separately |
-| MD signed printout scanned + numbered | ✅ Part 3.2 — C/7 is the scanned MD approval, page-numbered |
-| Email integration / file location / discussion module | "Those three your mail flagged for separate discussion — happy to take them next." |
-| Exact noting print format | "We match your template once you share it; the approval summary is already there." |
+| The note is the unit, not the file | ✅ Part 2 — each note has its own maker + signature chain |
+| File stays open / never closes | ✅ Part 4 — the Accounts bills register |
+| Same person checks and approves | ✅ "The chain is just people; one person can be both — two actions, Sign or Send back." |
+| Page-level C-numbers | ✅ Part 2.4 / Part 3 — C1, C2 … C26; reference a single page (C4) |
+| Continuous note pages | ✅ Part 3 — Note 1 p.1, Note 2 p.2 … on the noting side |
+| MD signed printout scanned + numbered | ✅ Part 3.2 — C23 is the scanned MD signature |
+| Cross-department movement | ✅ Part 3.2 — handed to Accounts and back |
+| Per-note signatories on print | ✅ Part 5.5 |
+| Two dashboards (Super Admin + User) | ✅ Part 6 vs Part 2.1 |
 
 ---
 
-## PART 7 — IF SOMETHING GOES WRONG
+## PART 8 — IF SOMETHING GOES WRONG
 
-- **A screen looks stuck or empty:** press **F5** (reload) and log in again.
-- **A quick-login button doesn't work / data looks messy:** in the seed terminal run `npm run seed:demo` again, then **F5**. (This resets everything to the clean demo — you lose the file you created live, which is fine.)
-- **"Add Note" is missing on a file:** you're not the current holder — that's correct behaviour; only the person holding the file can add a note.
-- **Backend terminal shows an error / :4000 not responding:** in the `server` folder run `npm run dev` again.
-- **You got lost in the middle of the live flow:** just jump to **Part 3** (show the finished file) — it stands on its own.
+- **A screen looks stuck/empty:** press **F5** and log in again.
+- **Data looks messy / you want a clean slate:** in the seed terminal run `npm run seed:demo`, then **F5**.
+- **"Add Note" isn't shown:** either you're not the current holder, or a note is already in progress (finish that note first — notes are sequential).
+- **Backend error / :4000 down:** in `server` run `npm run dev` again.
+- **Lost mid-flow:** jump to **Part 3** (the finished binder) — it stands on its own.
 
 ---
 
 ### One-line cheat sheet (keep visible)
-Login buttons → **Rutuja** (make) → **Rasika** (check) → **Ravi** (approve) → **MD** / **Suhas** / **Admin**. Password `Admin@123`.
-Create → Add Correspondence → Add Note (tick reviewers) → Submit → (Rasika) Review & Approve = Check → (Ravi) Review & Approve = Approve → Print. Then show **ADMIN/2026/001**. Then **Admin** for the report.
+Login → **Rutuja** (raise note) → **Rasika** (Sign & Forward) → **Ravi** (Sign & Finalize) → back to Rutuja.
+Create binder (UN auto) → Add Correspondence (C-pages) → **Add Note** → tick signer chain → **Submit for Signature** → each signer **Sign / Send Back**. Then show **ADMIN/2026/001** and **ACC/2026/001**. Then **Admin** for reports. Password `Admin@123`.

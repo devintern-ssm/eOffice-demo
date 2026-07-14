@@ -27,11 +27,9 @@ describe('departments (observation #1)', () => {
     expect(created.status).toBe(201);
     expect(created.body.department.code).toBe('HR'); // upper-cased
 
-    // A maker opens + submits a file in the new department → number uses the code.
+    // A maker opens a binder in the new department → its UN number uses the code.
     const file = await api().post('/api/v1/files').set(bearer(maker)).send({ subject: 'HR file', section: 'Human Resources' });
-    const id = file.body.file.id;
-    const submitted = await api().post(`/api/v1/files/${id}/submit`).set(bearer(maker));
-    expect(submitted.body.file.displayNumber).toMatch(/^HR\/\d{4}\/\d{3}$/);
+    expect(file.body.file.displayNumber).toMatch(/^HR\/\d{4}\/\d{3}$/);
   });
 
   it('rejects a duplicate department name (409)', async () => {

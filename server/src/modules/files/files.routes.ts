@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { asyncHandler, ApiError } from '../../utils/http.js';
 import { authenticate } from '../../middleware/auth.js';
 import {
-  assertCanAccessFile, createFile, getFileDetail, getFileStats, listFiles, submitFile,
+  assertCanAccessFile, createFile, getFileDetail, getFileStats, listFiles,
 } from './files.service.js';
 import { notesRouter } from '../notes/notes.routes.js';
 import { correspondenceRouter } from '../correspondence/correspondence.routes.js';
@@ -74,17 +74,15 @@ const blockAdminContent = (req: any, _res: any, next: any) => {
 
 filesRouter.use('/:id/notes', requireFileAccess, blockAdminContent, notesRouter);
 filesRouter.use('/:id/correspondence', requireFileAccess, blockAdminContent, correspondenceRouter);
-filesRouter.use('/:id', requireFileAccess, workflowRouter);   // /:id/forward, /:id/action, /:id/steps
-filesRouter.use('/:id', requireFileAccess, lifecycleRouter);  // /:id/route, /:id/return, /:id/transfer, /:id/close
+filesRouter.use('/:id', requireFileAccess, workflowRouter);   // /:id/sign, /:id/return, /:id/signers
+filesRouter.use('/:id', requireFileAccess, lifecycleRouter);  // /:id/handover, /:id/transfer, /:id/close
+// NOTE: blockAdminContent must NOT be attached to this base-path mount — a use('/:id') mount also
+// matches GET /:id and would 403 the admin's own file-detail view. The approvals ROUTES gate the
+// admin individually (they touch Noting/Correspondence content).
 filesRouter.use('/:id', requireFileAccess, approvalsRouter);  // /:id/md-approval, /:id/notes/:noteId/comments
 filesRouter.use('/:id', requireFileAccess, printRouter);      // /:id/print (admin guarded inside)
 
 filesRouter.get('/:id', requireFileAccess, asyncHandler(async (req, res) => {
   const file = await getFileDetail(req.params.id, req.user!);
-  res.json({ file });
-}));
-
-filesRouter.post('/:id/submit', requireFileAccess, asyncHandler(async (req, res) => {
-  const file = await submitFile(req.params.id, req.user!);
   res.json({ file });
 }));

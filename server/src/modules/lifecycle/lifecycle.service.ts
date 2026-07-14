@@ -5,76 +5,66 @@ import type { AuthUser } from '../../middleware/auth.js';
 import { getFileDetail } from '../files/files.service.js';
 import { notifyData } from '../../services/notify.js';
 
-/** Only the current holder, the originator, or an admin may drive lifecycle actions. */
-function assertHolderOrMaker(file: File, user: AuthUser) {
-  if (!(file.currentHolderId === user.id || file.createdById === user.id || user.role === 'ADMIN')) {
-    throw ApiError.forbidden('Only the current holder or the originator can perform this action');
+/** Only the current holder (or an admin) may drive lifecycle actions on a binder at rest. */
+function assertHolder(file: File, user: AuthUser) {
+  if (!(file.currentHolderId === user.id || user.role === 'ADMIN')) {
+    throw ApiError.forbidden('Only the current holder can perform this action');
   }
 }
 
-/** Post-approval routing to an actionable department for implementation (S19/H14). APPROVED -> ROUTED. */
-export async function routeToDept(fileId: string, input: { toUserId: string; remarks?: string }, user: AuthUser) {
+/** A note in flight (IN_REVIEW/RETURNED) pins the file to the workflow — block at-rest actions. */
+async function assertNoNoteInFlight(fileId: string) {
+  const inFlight = await prisma.note.findFirst({ where: { fileId, status: { in: ['IN_REVIEW', 'RETURNED'] } } });
+  if (inFlight) throw ApiError.badRequest(`Note ${inFlight.noteNumber} is in progress — it must be finished first`);
+}
+
+/**
+ * Hand an idle binder to another person so they can raise the next note (A2). The file must be
+ * at rest (no note in flight). Holder-only; the recipient becomes the new holder.
+ */
+export async function handoverFile(fileId: string, input: { toUserId: string; remarks?: string }, user: AuthUser) {
   const file = await prisma.file.findUnique({ where: { id: fileId } });
   if (!file) throw ApiError.notFound('File not found');
-  if (file.status !== 'APPROVED') throw ApiError.badRequest('Only an approved file can be routed for implementation');
-  assertHolderOrMaker(file, user);
+  if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
+  assertHolder(file, user);
+  await assertNoNoteInFlight(fileId);
   const to = await prisma.user.findUnique({ where: { id: input.toUserId } });
   if (!to) throw ApiError.badRequest('Recipient not found');
 
   await prisma.$transaction([
-    prisma.file.update({ where: { id: fileId }, data: { status: 'ROUTED', currentHolderId: to.id, lastUsedAt: new Date() } }),
-    prisma.movement.create({ data: { fileId, type: 'ROUTE', actorId: user.id, actorName: user.name, toUserId: to.id, toName: to.name, toSection: to.section, remarks: input.remarks || 'Routed for implementation' } }),
-    ...(to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'ROUTE', `File routed to you for action: ${file.subject}`, fileId))] : []),
+    prisma.file.update({ where: { id: fileId }, data: { currentHolderId: to.id, lastUsedAt: new Date() } }),
+    prisma.movement.create({ data: { fileId, type: 'HANDOVER', actorId: user.id, actorName: user.name, toUserId: to.id, toName: to.name, toSection: to.section, remarks: input.remarks || `Handed over to ${to.name}` } }),
+    ...(to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'HANDOVER', `A file was handed over to you: ${file.subject}`, fileId))] : []),
   ]);
   return getFileDetail(fileId, user);
 }
 
-/** After implementation/comments, return the file to the originator (S19). ROUTED -> RETURNED. */
-export async function returnToMaker(fileId: string, input: { remarks?: string }, user: AuthUser) {
-  const file = await prisma.file.findUnique({ where: { id: fileId } });
-  if (!file) throw ApiError.notFound('File not found');
-  if (file.status !== 'ROUTED') throw ApiError.badRequest('Only a routed file can be returned to the maker');
-  if (!(file.currentHolderId === user.id || user.role === 'ADMIN')) {
-    throw ApiError.forbidden('Only the actionable-department holder can return this file');
-  }
-  const maker = await prisma.user.findUnique({ where: { id: file.createdById } });
-
-  await prisma.$transaction([
-    prisma.file.update({ where: { id: fileId }, data: { status: 'RETURNED', currentHolderId: file.createdById, lastUsedAt: new Date() } }),
-    prisma.movement.create({ data: { fileId, type: 'RETURN', actorId: user.id, actorName: user.name, toUserId: file.createdById, toName: maker?.name, remarks: input.remarks || 'Implemented; returned to originator' } }),
-    ...(file.createdById !== user.id ? [prisma.notification.create(notifyData(file.createdById, 'RETURN', `File returned to you: ${file.subject}`, fileId))] : []),
-  ]);
-  return getFileDetail(fileId, user);
-}
-
-/** Permanent cross-department transfer (SD Additional Points / D11). Number is unchanged. */
+/** Permanent cross-department transfer — the binder's current location (section) changes. */
 export async function transferFile(fileId: string, input: { toSection: string; toUserId?: string; reason?: string }, user: AuthUser) {
   const file = await prisma.file.findUnique({ where: { id: fileId } });
   if (!file) throw ApiError.notFound('File not found');
   if (file.status === 'CLOSED') throw ApiError.badRequest('File is closed');
-  // A cross-department transfer is a powerful move; restrict it to the CURRENT HOLDER (or admin),
-  // not the originator who may have long since handed the file off (QA BUG-2, spec §5:
-  // "only the current holder can act"). On a DRAFT the originator still holds the file, so
-  // pre-review transfers are unaffected.
-  if (!(file.currentHolderId === user.id || user.role === 'ADMIN')) {
-    throw ApiError.forbidden('Only the current holder can transfer this file');
-  }
+  assertHolder(file, user);
+  await assertNoNoteInFlight(fileId);
   const to = input.toUserId ? await prisma.user.findUnique({ where: { id: input.toUserId } }) : null;
 
   await prisma.$transaction([
     prisma.file.update({ where: { id: fileId }, data: { section: input.toSection, currentHolderId: to?.id ?? file.currentHolderId, lastUsedAt: new Date() } }),
     prisma.movement.create({ data: { fileId, type: 'TRANSFER', actorId: user.id, actorName: user.name, fromSection: file.section, toSection: input.toSection, toUserId: to?.id, toName: to?.name, remarks: input.reason || `Transferred to ${input.toSection}` } }),
-    ...(to && to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'ASSIGN', `File transferred to you (${input.toSection}): ${file.subject}`, fileId))] : []),
+    ...(to && to.id !== user.id ? [prisma.notification.create(notifyData(to.id, 'HANDOVER', `File transferred to you (${input.toSection}): ${file.subject}`, fileId))] : []),
   ]);
   return getFileDetail(fileId, user);
 }
 
-/** Close a file (SD §9 / H17): records close date + reason + optional successor link; read-only afterwards. */
+/** Close a binder (rare — a case file at its end). Requires no note in flight (O5). Read-only after. */
 export async function closeFile(fileId: string, input: { reason: string; successorFileId?: string }, user: AuthUser) {
   const file = await prisma.file.findUnique({ where: { id: fileId } });
   if (!file) throw ApiError.notFound('File not found');
   if (file.status === 'CLOSED') throw ApiError.badRequest('File is already closed');
-  assertHolderOrMaker(file, user);
+  if (!(file.currentHolderId === user.id || file.createdById === user.id || user.role === 'ADMIN')) {
+    throw ApiError.forbidden('Only the current holder or the originator can close this file');
+  }
+  await assertNoNoteInFlight(fileId);
   if (input.successorFileId) {
     const succ = await prisma.file.findUnique({ where: { id: input.successorFileId } });
     if (!succ) throw ApiError.badRequest('Successor file not found');

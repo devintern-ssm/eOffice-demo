@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
 export type NotificationType =
-  | 'FORWARD' | 'CHECK' | 'APPROVE' | 'REVERT' | 'ROUTE' | 'RETURN' | 'ASSIGN' | 'COMMENT';
+  | 'OPEN_NOTE' | 'SIGN' | 'RETURN' | 'FINALIZE' | 'HANDOVER' | 'ASSIGN' | 'COMMENT';
 
 /**
  * Build the args for a `notification.create`. Works with both the callback-form

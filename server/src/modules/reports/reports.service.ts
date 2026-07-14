@@ -98,15 +98,15 @@ export async function getReport(q: ReportQuery, viewer?: AuthUser) {
     remarks: m.remarks ?? '',
   }));
 
-  // Summary cards
-  const [totalFiles, approved, underReview, closed] = await Promise.all([
+  // Summary cards — files are OPEN|CLOSED; "in review" counts notes currently under signature.
+  const [totalFiles, openFiles, notesInReview, closed] = await Promise.all([
     prisma.file.count(),
-    prisma.file.count({ where: { status: 'APPROVED' } }),
-    prisma.file.count({ where: { status: 'UNDER_REVIEW' } }),
+    prisma.file.count({ where: { status: 'OPEN' } }),
+    prisma.note.count({ where: { status: 'IN_REVIEW' } }),
     prisma.file.count({ where: { status: 'CLOSED' } }),
   ]);
 
-  return { rows, files, summary: { totalFiles, approved, underReview, closed, logCount: rows.length } };
+  return { rows, files, summary: { totalFiles, openFiles, notesInReview, closed, logCount: rows.length } };
 }
 
 function csvCell(v: unknown): string {

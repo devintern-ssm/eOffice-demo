@@ -1,26 +1,17 @@
 import { apiFetch } from './client'
 
-/** Forward/route a DRAFT or REVERTED file into the review chain. body: { recipients:[{userId,role}], remarks } */
-export function forwardFile(fileId, body) {
-  return apiFetch(`/files/${fileId}/forward`, { method: 'POST', body: JSON.stringify(body) }).then((d) => d.file)
+/** Sign & forward the in-flight note (advances the chain, or finalizes on the last signer).
+ *  body: { remarks?, dept?, signatureName? } */
+export function signNote(fileId, body) {
+  return apiFetch(`/files/${fileId}/sign`, { method: 'POST', body: JSON.stringify(body || {}) }).then((d) => d.file)
 }
 
-/** Act on the current review step. body: { action, remarks, dept, signatureName } */
-export function actOnFile(fileId, body) {
-  return apiFetch(`/files/${fileId}/action`, { method: 'POST', body: JSON.stringify(body) }).then((d) => d.file)
+/** Send the in-flight note back to its maker. body: { remarks? } */
+export function returnNote(fileId, body) {
+  return apiFetch(`/files/${fileId}/return`, { method: 'POST', body: JSON.stringify(body || {}) }).then((d) => d.file)
 }
 
-/** Add a reviewer/recipient mid-flow. body: { userId, role } */
-export function addReviewer(fileId, body) {
-  return apiFetch(`/files/${fileId}/steps`, { method: 'POST', body: JSON.stringify(body) }).then((d) => d.file)
-}
-
-/** Assign/reassign the Maker (responsible officer). body: { makerId } */
-export function assignMaker(fileId, makerId) {
-  return apiFetch(`/files/${fileId}/assign-maker`, { method: 'POST', body: JSON.stringify({ makerId }) }).then((d) => d.file)
-}
-
-/** Remove a pending reviewer step. */
-export function removeStep(fileId, stepId) {
-  return apiFetch(`/files/${fileId}/steps/${stepId}`, { method: 'DELETE' }).then((d) => d.file)
+/** Append a signer to the in-flight note's chain. body: { userId, roleLabel? } */
+export function addSigner(fileId, body) {
+  return apiFetch(`/files/${fileId}/signers`, { method: 'POST', body: JSON.stringify(body) }).then((d) => d.file)
 }
