@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiFile, FiEye, FiLoader, FiEdit } from 'react-icons/fi'
+import { FiFile, FiEye, FiLoader, FiEdit, FiBookOpen } from 'react-icons/fi'
 import { listFiles } from '../api/files'
 import { prettyStatus, statusColor } from '../utils/status'
 import './FileList.css'
@@ -58,6 +58,7 @@ const Drafts = () => {
                 </div>
                 <div className="file-actions">
                   <Link to={`/file/${file.id}`} className="btn-view"><FiEye /> Open Draft</Link>
+                  <Link to={`/file/${file.id}/read`} className="btn-view" style={{ marginLeft: 8 }}><FiBookOpen /> Read</Link>
                 </div>
               </div>
             ))}

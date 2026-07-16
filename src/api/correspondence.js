@@ -1,4 +1,4 @@
-import { apiUpload, apiBlob } from './client'
+import { apiFetch, apiUpload, apiBlob } from './client'
 
 /** Upload a correspondence document (PDF) or an email reference.
  *  fields: { type, title, inwardDate?, inwardNumber?, emailReference?, file? } */
@@ -13,23 +13,29 @@ export function addCorrespondence(fileId, fields) {
   return apiUpload(`/files/${fileId}/correspondence`, fd).then((d) => d.correspondence)
 }
 
-async function fetchBlob(fileId, corrId) {
-  return apiBlob(`/files/${fileId}/correspondence/${corrId}/file`)
+async function fetchBlob(fileId, corrId, action) {
+  const q = action ? `?action=${action}` : ''
+  return apiBlob(`/files/${fileId}/correspondence/${corrId}/file${q}`)
 }
 
-/** Load a correspondence attachment as an object URL for inline preview (review #3). */
+/** Load a correspondence attachment as an object URL for inline preview (not logged as an access). */
 export async function loadCorrespondenceUrl(fileId, corrId) {
   const blob = await fetchBlob(fileId, corrId)
   return URL.createObjectURL(blob)
 }
 
 export async function viewCorrespondence(fileId, corrId) {
-  const blob = await fetchBlob(fileId, corrId)
+  const blob = await fetchBlob(fileId, corrId, 'view')
   window.open(URL.createObjectURL(blob), '_blank')
 }
 
+/** Download/view/access history for a correspondence document. */
+export function correspondenceHistory(fileId, corrId) {
+  return apiFetch(`/files/${fileId}/correspondence/${corrId}/history`).then((d) => d.history)
+}
+
 export async function downloadCorrespondence(fileId, corrId, filename = 'correspondence.pdf') {
-  const blob = await fetchBlob(fileId, corrId)
+  const blob = await fetchBlob(fileId, corrId, 'download')
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

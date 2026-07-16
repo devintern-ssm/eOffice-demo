@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiFile, FiSearch, FiFilter, FiEye, FiLoader } from 'react-icons/fi'
+import { FiFile, FiSearch, FiFilter, FiEye, FiLoader, FiBookOpen } from 'react-icons/fi'
 import { listFiles } from '../api/files'
 import { FILE_STATUSES, prettyStatus, statusColor } from '../utils/status'
 import './FileList.css'
@@ -24,6 +24,10 @@ const Inbox = () => {
     return () => { active = false }
   }, [])
 
+  const isOutward = (f) => f.inboxType === 'Outward'
+  const inwardCount = files.filter((f) => !isOutward(f)).length
+  const outwardCount = files.filter((f) => isOutward(f)).length
+
   const filteredFiles = files.filter((file) => {
     const term = searchTerm.toLowerCase()
     const matchesSearch =
@@ -31,7 +35,8 @@ const Inbox = () => {
       file.subject.toLowerCase().includes(term) ||
       (file.unNumber && file.unNumber.toLowerCase().includes(term))
     const matchesStatus = statusFilter === 'all' || file.status === statusFilter
-    const matchesInboxType = inboxTypeFilter === 'all' || file.inboxType === inboxTypeFilter
+    const matchesInboxType = inboxTypeFilter === 'all'
+      || (inboxTypeFilter === 'Outward' ? isOutward(file) : !isOutward(file))
     return matchesSearch && matchesStatus && matchesInboxType
   })
 
@@ -47,6 +52,27 @@ const Inbox = () => {
     <div className="file-list-page">
       <div className="page-header">
         <h1>Inbox</h1>
+      </div>
+
+      {/* Inward / Outward sections */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {[
+          { id: 'all', label: 'All', count: files.length, hint: 'Everything currently with you' },
+          { id: 'Inward', label: 'Inward', count: inwardCount, hint: 'Received for your action' },
+          { id: 'Outward', label: 'Outward', count: outwardCount, hint: 'Your notes sent back for rework' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setInboxTypeFilter(t.id)}
+            title={t.hint}
+            style={{
+              padding: '8px 16px', borderRadius: 8, border: '1px solid #cbd5e0', cursor: 'pointer', fontWeight: 600,
+              background: inboxTypeFilter === t.id ? '#4c51bf' : '#fff', color: inboxTypeFilter === t.id ? '#fff' : '#4a5568',
+            }}
+          >
+            {t.label} <span style={{ opacity: 0.85 }}>({t.count})</span>
+          </button>
+        ))}
       </div>
 
       <div className="filters-bar">
@@ -66,14 +92,6 @@ const Inbox = () => {
             {FILE_STATUSES.map((s) => (
               <option key={s} value={s}>{prettyStatus(s)}</option>
             ))}
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Type:</label>
-          <select value={inboxTypeFilter} onChange={(e) => setInboxTypeFilter(e.target.value)} className="filter-select">
-            <option value="all">All</option>
-            <option value="Inward">Inward (routed to you)</option>
-            <option value="Outward">Outward (reverted for rework)</option>
           </select>
         </div>
       </div>
@@ -111,6 +129,7 @@ const Inbox = () => {
                 </div>
                 <div className="file-actions">
                   <Link to={`/file/${file.id}`} className="btn-view"><FiEye /> View File</Link>
+                  <Link to={`/file/${file.id}/read`} className="btn-view" style={{ marginLeft: 8 }}><FiBookOpen /> Read</Link>
                 </div>
               </div>
             ))}

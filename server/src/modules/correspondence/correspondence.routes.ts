@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { asyncHandler, ApiError } from '../../utils/http.js';
-import { addCorrespondence, getCorrespondenceFile } from './correspondence.service.js';
+import { addCorrespondence, getCorrespondenceFile, getCorrespondenceHistory } from './correspondence.service.js';
 
 // mergeParams so req.params.id (the fileId) is available from the parent router.
 export const correspondenceRouter = Router({ mergeParams: true });
@@ -27,8 +27,15 @@ correspondenceRouter.post('/', upload.single('file'), asyncHandler(async (req, r
 }));
 
 correspondenceRouter.get('/:corrId/file', asyncHandler(async (req, res) => {
-  const { buffer, mime, filename } = await getCorrespondenceFile(req.params.id, req.params.corrId);
+  const { buffer, mime, filename } = await getCorrespondenceFile(
+    req.params.id, req.params.corrId, req.user, req.query.action as string | undefined,
+  );
   res.setHeader('Content-Type', mime);
   res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
   res.send(buffer);
+}));
+
+// Access (download/view) history for a correspondence document.
+correspondenceRouter.get('/:corrId/history', asyncHandler(async (req, res) => {
+  res.json({ history: await getCorrespondenceHistory(req.params.id, req.params.corrId) });
 }));

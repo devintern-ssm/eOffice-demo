@@ -1,0 +1,82 @@
+/* Full-screen "book reader" — an open physical file: noting left, correspondence right. */
+.reader {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; flex-direction: column;
+  background: #2d2a26; /* dark desk behind the open book */
+  color: #1a202c;
+}
+
+.reader-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 16px;
+  background: #1f2933; color: #edf2f7; font-size: 14px;
+}
+.reader-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.reader-title strong { white-space: nowrap; }
+.reader-subject { color: #cbd5e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }
+.reader-status { font-size: 10px; font-weight: 700; letter-spacing: .5px; padding: 2px 8px; border-radius: 10px; color: #fff; }
+.reader-close {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #e53e3e; color: #fff; border: none; border-radius: 8px;
+  padding: 7px 14px; cursor: pointer; font-weight: 600; flex: none;
+}
+
+.reader-book {
+  flex: 1; display: flex; align-items: stretch; gap: 0;
+  padding: 18px; min-height: 0;
+  background: radial-gradient(ellipse at center, #3a352f 0%, #26231f 100%);
+}
+.reader-side {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  background: #fbf7ee; /* cream paper */
+  box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+}
+.reader-notes { border-radius: 8px 0 0 8px; }
+.reader-corr  { border-radius: 0 8px 8px 0; }
+.reader-spine { width: 22px; background: linear-gradient(90deg, rgba(0,0,0,0.28), rgba(0,0,0,0.05) 45%, rgba(0,0,0,0.05) 55%, rgba(0,0,0,0.28)); flex: none; }
+
+.reader-side-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid #e6dcc6; background: #f3ead6;
+}
+.reader-side-title { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: #7b6a48; }
+.reader-nav { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #4a5568; }
+.reader-nav button {
+  border: 1px solid #d8caa8; background: #fff; color: #4a5568;
+  width: 30px; height: 28px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.reader-nav button:disabled { opacity: .4; cursor: default; }
+
+.reader-side-body { flex: 1; overflow: auto; padding: 18px 20px; }
+
+/* Notes (left) */
+.read-note { border-left: 3px solid #cbd5e0; padding: 8px 14px; margin: 0 0 18px; background: #fffdf8; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.read-note-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.read-badge { font-size: 10px; font-weight: 700; letter-spacing: .4px; padding: 1px 7px; border-radius: 10px; color: #fff; }
+.reader-note-date { margin-left: auto; }
+.read-note-body { white-space: pre-wrap; line-height: 1.6; font-size: 14px; color: #2d3748; }
+.read-note-foot { margin-top: 8px; font-size: 12px; }
+.muted { color: #8a7b5c; }
+.read-ref { color: #b7791f; font-weight: 700; cursor: pointer; text-decoration: underline dotted; }
+.read-ref:hover { color: #975a16; }
+.read-signs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.read-sign { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #fff; border: 1px solid #cbd5e0; color: #4a5568; }
+
+/* Correspondence (right) */
+.reader-doc-label { padding: 6px 16px; font-size: 12px; color: #7b6a48; border-bottom: 1px dashed #e6dcc6; background: #fbf7ee; }
+.reader-doc { padding: 0; background: #e9e2d2; }
+.reader-doc iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.reader-img { max-width: 100%; max-height: 100%; display: block; margin: 12px auto; }
+
+.reader-strip { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px; border-top: 1px solid #e6dcc6; background: #f3ead6; }
+.reader-chip { flex: none; border: 1px solid #d8caa8; background: #fff; color: #6b5a3a; border-radius: 14px; padding: 3px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.reader-chip.active { background: #7b6a48; color: #fff; border-color: #7b6a48; }
+
+.reader-empty { color: #8a7b5c; padding: 28px; text-align: center; margin: auto; }
+.reader-hint { text-align: center; font-size: 12px; color: #b7ab90; padding: 6px; background: #1f2933; }
+
+@media (max-width: 820px) {
+  .reader-book { flex-direction: column; padding: 8px; }
+  .reader-spine { width: auto; height: 14px; }
+  .reader-notes, .reader-corr { border-radius: 8px; }
+}

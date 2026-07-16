@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   FiFile, FiPlus, FiSend, FiLock, FiPrinter, FiUser, FiChevronDown, FiChevronUp,
-  FiDownload, FiEye, FiMaximize2, FiMinimize2, FiUserPlus, FiEyeOff, FiCheck, FiCornerUpLeft
+  FiDownload, FiEye, FiMaximize2, FiMinimize2, FiUserPlus, FiEyeOff, FiCheck, FiCornerUpLeft, FiClock, FiX, FiBookOpen
 } from 'react-icons/fi'
 import { getFile } from '../api/files'
-import { viewCorrespondence, downloadCorrespondence, loadCorrespondenceUrl } from '../api/correspondence'
+import { viewCorrespondence, downloadCorrespondence, loadCorrespondenceUrl, correspondenceHistory } from '../api/correspondence'
 import { addSigner } from '../api/workflow'
 import { handoverFile, transferFile, closeFile } from '../api/lifecycle'
 import { uploadMdApproval, addNoteComment } from '../api/approvals'
@@ -15,6 +15,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useDepartmentNames } from '../hooks/useDepartments'
 import ActionModal from '../components/ActionModal'
 import { statusColor, prettyStatus } from '../utils/status'
+import { fmtDateTime } from '../utils/format'
 import AddNoteModal from '../components/AddNoteModal'
 import AddCorrespondenceModal from '../components/AddCorrespondenceModal'
 import ReviewModal from '../components/ReviewModal'
@@ -40,6 +41,11 @@ const FileDetail = () => {
   const previewUrlRef = useRef(null)
   const [expandedSections, setExpandedSections] = useState({ fileCover: true, movement: false })
   const [expandedCorr, setExpandedCorr] = useState({})
+  const [historyFor, setHistoryFor] = useState(null) // { corr, rows } | null
+
+  const openHistory = async (corr) => {
+    try { const rows = await correspondenceHistory(fileId, corr.id); setHistoryFor({ corr, rows }) } catch (e) { alert(e.message) }
+  }
 
   useEffect(() => {
     let active = true
@@ -245,7 +251,7 @@ const FileDetail = () => {
                           {' → '}
                           {mov.to.name ? `${mov.to.name}${mov.to.section ? ` · ${mov.to.section}` : ''}` : (mov.to.section || '—')}
                         </div>
-                        <div className="movement-date">{new Date(mov.date).toLocaleString()}</div>
+                        <div className="movement-date">{fmtDateTime(mov.date)}</div>
                         {mov.remarks && <div className="movement-remarks">{mov.remarks}</div>}
                       </div>
                     </div>
@@ -270,7 +276,7 @@ const FileDetail = () => {
                       </div>
                       <div style={{ fontSize: 12, color: '#4a5568' }}>
                         {prettyStatus(s.status)}
-                        {s.actedAt ? ` · ${new Date(s.actedAt).toLocaleDateString()}` : ''}
+                        {s.actedAt ? ` · ${fmtDateTime(s.actedAt)}` : ''}
                         {s.signatureName && s.status !== 'PENDING' ? ` · ✍ ${s.signatureName}` : ''}
                       </div>
                       {s.remarks && s.status !== 'PENDING' && <div style={{ fontSize: 12, color: '#718096', fontStyle: 'italic' }}>{s.remarks}</div>}
@@ -290,6 +296,8 @@ const FileDetail = () => {
             </div>
           ) : (
             <div className="quick-actions">
+              {/* Book reader — open to everyone; read the whole file like a physical file */}
+              <Link to={`/file/${fileId}/read`} className="action-btn" style={{ textDecoration: 'none', background: '#ebf4ff', borderColor: '#bee3f8', color: '#2b6cb0' }}><FiBookOpen /> Open Reader</Link>
               {/* Note under signature and I hold it → sign / send back */}
               {canSign && (
                 <>
@@ -364,7 +372,7 @@ const FileDetail = () => {
                           {notePages(note) && <span style={{ marginLeft: 8, fontSize: 12, color: '#718096', fontWeight: 400 }}>{notePages(note)}</span>}
                           <span className="status-badge" style={{ marginLeft: 8, background: statusColor(note.status), fontSize: 10, padding: '1px 7px' }}>{prettyStatus(note.status)}</span>
                         </div>
-                        <div className="note-date">{new Date(note.date).toLocaleString()}</div>
+                        <div className="note-date">{fmtDateTime(note.date)}</div>
                       </div>
                       {editingNote === note.id ? (
                         <div className="note-content">
@@ -493,6 +501,7 @@ const FileDetail = () => {
                               <div className="corr-actions">
                                 <button className="corr-btn" onClick={() => openCorrInline(corr, 1)}><FiEye /> Open</button>
                                 <button className="corr-btn" onClick={() => downloadCorrespondence(file.id, corr.id, corr.originalName || `${(corr.cLabel || corr.number).replace(/[^\w-]/g, '_')}`)}><FiDownload /> Download</button>
+                                <button className="corr-btn" onClick={() => openHistory(corr)} title="Who downloaded/opened this"><FiClock /> History</button>
                               </div>
                             )}
                           </div>
@@ -519,6 +528,41 @@ const FileDetail = () => {
       {showCorrModal && <AddCorrespondenceModal file={file} onClose={() => setShowCorrModal(false)} onSaved={refresh} />}
       {showReviewModal && <ReviewModal file={file} onClose={() => setShowReviewModal(false)} onSaved={refresh} />}
       {showPrintModal && <PrintModal file={file} onClose={() => setShowPrintModal(false)} />}
+      {historyFor && (
+        <div className="modal-overlay" onClick={() => setHistoryFor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: 'min(520px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #edf2f7' }}>
+              <h2 style={{ margin: 0, fontSize: 17 }}><FiClock style={{ verticalAlign: '-2px' }} /> Access history — {historyFor.corr.cLabel || historyFor.corr.number}</h2>
+              <button onClick={() => setHistoryFor(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18 }}><FiX /></button>
+            </div>
+            <div style={{ overflow: 'auto', padding: '8px 18px 16px' }}>
+              <div style={{ fontSize: 12, color: '#718096', margin: '4px 0 8px' }}>{historyFor.corr.title}</div>
+              {historyFor.rows.length === 0 ? (
+                <div style={{ color: '#718096', padding: '12px 0' }}>No downloads or opens recorded yet.</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead><tr style={{ textAlign: 'left', color: '#718096' }}>
+                    <th style={{ padding: '6px 4px', borderBottom: '1px solid #e2e8f0' }}>Action</th>
+                    <th style={{ padding: '6px 4px', borderBottom: '1px solid #e2e8f0' }}>By</th>
+                    <th style={{ padding: '6px 4px', borderBottom: '1px solid #e2e8f0' }}>When</th>
+                  </tr></thead>
+                  <tbody>
+                    {historyFor.rows.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ padding: '6px 4px', borderBottom: '1px solid #edf2f7' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: r.action === 'DOWNLOAD' ? '#e6fffa' : '#edf2f7', color: r.action === 'DOWNLOAD' ? '#2c7a7b' : '#4a5568' }}>{r.action}</span>
+                        </td>
+                        <td style={{ padding: '6px 4px', borderBottom: '1px solid #edf2f7' }}>{r.userName}</td>
+                        <td style={{ padding: '6px 4px', borderBottom: '1px solid #edf2f7' }}>{fmtDateTime(r.date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {activeAction === 'handover' && (
         <ActionModal
           title="Hand Over the File" submitLabel="Hand Over"

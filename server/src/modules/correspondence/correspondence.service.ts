@@ -99,16 +99,35 @@ export async function addCorrespondence(
   };
 }
 
-export async function getCorrespondenceFile(fileId: string, corrId: string) {
+export async function getCorrespondenceFile(fileId: string, corrId: string, user?: AuthUser, action?: string) {
   const c = await prisma.correspondence.findFirst({ where: { id: corrId, fileId } });
   if (!c) throw ApiError.notFound('Correspondence not found');
   if (!c.storageKey) throw ApiError.notFound('No file attached');
   const buffer = await storage.read(c.storageKey);
   if (!buffer) throw ApiError.notFound('No file attached');
+  // Record explicit downloads / opens (silent inline previews pass no action and are not logged).
+  const act = action === 'download' ? 'DOWNLOAD' : action === 'view' ? 'VIEW' : null;
+  if (act && user) {
+    await prisma.correspondenceAccess.create({
+      data: { correspondenceId: c.id, fileId, userId: user.id, userName: user.name, action: act },
+    });
+  }
   const ext = extForAttachment(c.mime, c.originalName ?? undefined);
   return {
     buffer,
     mime: c.mime,
     filename: c.originalName || `${c.number.replace('/', '-')}.${ext}`,
   };
+}
+
+/** The access (download/view) history for one correspondence document. */
+export async function getCorrespondenceHistory(fileId: string, corrId: string) {
+  const c = await prisma.correspondence.findFirst({ where: { id: corrId, fileId } });
+  if (!c) throw ApiError.notFound('Correspondence not found');
+  const rows = await prisma.correspondenceAccess.findMany({
+    where: { correspondenceId: corrId },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+  return rows.map((r) => ({ id: r.id, userName: r.userName, action: r.action, date: r.createdAt }));
 }

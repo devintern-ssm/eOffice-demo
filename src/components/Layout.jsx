@@ -62,7 +62,7 @@ const Layout = ({ children }) => {
           </button>
           <div className="logo">
             <FiFile className="logo-icon" />
-            <span className="logo-text">eOffice</span>
+            <span className="logo-text">e-Office-SICOM&nbsp;<span style={{ fontWeight: 500 }}>संचिका प्रवाह</span></span>
           </div>
         </div>
         <div className="header-center">

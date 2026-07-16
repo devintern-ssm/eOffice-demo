@@ -267,3 +267,22 @@ describe('review-confirmed fixes (regression)', () => {
     expect(draftNote.noteNumber).toBeGreaterThan(2);
   });
 });
+
+describe('correspondence access history', () => {
+  it('logs explicit downloads/opens but not silent inline previews', async () => {
+    const { rajesh } = await tokens();
+    const id = await createFile(rajesh, { subject: 'Download history' });
+    const up = await api().post(`/api/v1/files/${id}/correspondence`).set(bearer(rajesh))
+      .field('type', 'Bill').field('title', 'Electricity bill').attach('file', await pdfBuffer(1), 'bill.pdf');
+    const corrId = up.body.correspondence.id;
+    // silent inline preview (no action) — not logged
+    await api().get(`/api/v1/files/${id}/correspondence/${corrId}/file`).set(bearer(rajesh));
+    // explicit download + open — logged
+    await api().get(`/api/v1/files/${id}/correspondence/${corrId}/file?action=download`).set(bearer(rajesh));
+    await api().get(`/api/v1/files/${id}/correspondence/${corrId}/file?action=view`).set(bearer(rajesh));
+    const hist = await api().get(`/api/v1/files/${id}/correspondence/${corrId}/history`).set(bearer(rajesh)).then((r) => r.body.history);
+    expect(hist).toHaveLength(2);
+    expect(hist.map((h: any) => h.action).sort()).toEqual(['DOWNLOAD', 'VIEW']);
+    expect(hist[0].userName).toBeTruthy();
+  });
+});

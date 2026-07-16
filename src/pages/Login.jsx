@@ -30,7 +30,7 @@ export default function Login() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7fafc' }}>
       <div style={{ width: 400, background: '#fff', borderRadius: 12, padding: 28, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
-        <h1 style={{ margin: '0 0 2px', fontSize: 24 }}>eOffice</h1>
+        <h1 style={{ margin: '0 0 2px', fontSize: 21 }}>e-Office-SICOM <span style={{ fontWeight: 600 }}>संचिका प्रवाह</span></h1>
         <p style={{ color: '#718096', marginTop: 0 }}>Noting–Correspondence File System</p>
         <form onSubmit={(e) => { e.preventDefault(); doLogin(email, password) }}>
           <label style={{ fontSize: 13 }}>Email</label>

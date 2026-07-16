@@ -80,8 +80,14 @@ export async function listFiles(q: ListFilesQuery, user: AuthUser) {
     (f) => !f.confidential || user.role === 'ADMIN' || f.createdById === user.id
       || f.currentHolderId === user.id || f.noteSteps.some((s) => s.signerId === user.id),
   );
-  // Expose whether a note is in flight so callers can offer "add a note" only on idle binders.
-  return visible.map((f) => ({ ...toFileDTO(f), activeNoteNumber: f.notes[0]?.noteNumber ?? null, activeNoteStatus: f.notes[0]?.status ?? null }));
+  // Expose whether a note is in flight (so callers can offer "add a note" only on idle binders),
+  // and classify the inbox bucket for the viewer: a note RETURNED to me for rework is "Outward"
+  // (it went out and came back); everything else received/held is "Inward".
+  return visible.map((f) => {
+    const active = f.notes[0] ?? null;
+    const inboxType: 'Inward' | 'Outward' = active?.status === 'RETURNED' && f.currentHolderId === user.id ? 'Outward' : 'Inward';
+    return { ...toFileDTO(f), inboxType, activeNoteNumber: active?.noteNumber ?? null, activeNoteStatus: active?.status ?? null };
+  });
 }
 
 /** Throw 403 if the user may not view a confidential file. */

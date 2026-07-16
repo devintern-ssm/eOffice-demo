@@ -168,7 +168,26 @@ model Correspondence {
   uploadedByName String
   createdAt    DateTime @default(now())
 
+  accesses     CorrespondenceAccess[]
+
   @@unique([fileId, number])
+  @@index([fileId])
+}
+
+// ---------------------------------------------------------------------------
+// Correspondence access log — who viewed/downloaded which document, and when.
+// ---------------------------------------------------------------------------
+model CorrespondenceAccess {
+  id               String        @id @default(uuid())
+  correspondenceId String
+  correspondence   Correspondence @relation(fields: [correspondenceId], references: [id], onDelete: Cascade)
+  fileId           String
+  userId           String
+  userName         String
+  action           String        // DOWNLOAD | VIEW
+  createdAt        DateTime      @default(now())
+
+  @@index([correspondenceId])
   @@index([fileId])
 }
 

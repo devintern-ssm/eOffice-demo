@@ -8,6 +8,7 @@ import PendingApprovals from './pages/PendingApprovals'
 import SentFiles from './pages/SentFiles'
 import AllFiles from './pages/AllFiles'
 import FileDetail from './pages/FileDetail'
+import ReaderView from './pages/ReaderView'
 import CreateFile from './pages/CreateFile'
 import Drafts from './pages/Drafts'
 import Reports from './pages/Reports'
@@ -31,6 +32,7 @@ function Shell() {
           <Route path="/all-files" element={<AllFiles />} />
           <Route path="/drafts" element={<Drafts />} />
           <Route path="/file/:fileId" element={<FileDetail />} />
+          <Route path="/file/:fileId/read" element={<ReaderView />} />
           <Route path="/create-file" element={<CreateFile />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/users" element={<Users />} />
